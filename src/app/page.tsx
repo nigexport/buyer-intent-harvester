@@ -1,16 +1,25 @@
 import { supabase } from '../lib/supabase';
 
-function daysAgo(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-}
-
 export default async function Home() {
+  const sevenDaysAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
   const { data, error } = await supabase
     .from('buyer_intents')
-    .select('*')
-    .limit(5);
+    .select(`
+      id,
+      source_url,
+      clean_text,
+      company_name,
+      request_category,
+      country,
+      location,
+      created_at
+    `)
+    .gte('created_at', sevenDaysAgo)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
   if (error) {
     return (
@@ -36,10 +45,12 @@ export default async function Home() {
           }}
         >
           <a href={item.source_url} target="_blank" rel="noopener noreferrer">
-            <strong>{item.request_category || 'Buyer Request'}</strong>
+            <strong>
+              {(item.request_category || 'Buyer Request').replace(/^=+/, '')}
+            </strong>
           </a>
 
-          <p>{item.clean_text}</p>
+          <p>{item.clean_text?.replace(/^=+/, '')}</p>
 
           <small>
             {item.country || 'Unknown country'} ·{' '}
