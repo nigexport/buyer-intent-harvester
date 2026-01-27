@@ -49,10 +49,19 @@ export default async function Home({
     query = query.eq('country', searchParams.country);
   }
 
-  const { data } = await query;
+  const { data, error } = await query;
+
+  if (error) {
+    return (
+      <main style={{ padding: 24 }}>
+        <h2>Error loading feed</h2>
+        <pre>{JSON.stringify(error, null, 2)}</pre>
+      </main>
+    );
+  }
 
   /* -----------------------
-     Country list
+     Country dropdown data
   ------------------------ */
   const { data: countryRows } = await supabase
     .from('buyer_intents')
@@ -64,33 +73,107 @@ export default async function Home({
   ).sort();
 
   return (
-    <main style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-      <h1>Buyer Intent Feed</h1>
+    <main style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <h1 style={{ marginBottom: 16 }}>Buyer Intent Feed</h1>
 
       <FeedUI
         countries={countries}
         currentDays={days}
-        currentCountry={searchParams.country}
+        currentPage={page}
         currentQuery={searchParams.q}
+        currentCountry={searchParams.country}
       />
 
       {data?.length === 0 && <p>No results found.</p>}
 
-      {data?.map(item => (
-        <div key={item.id} style={{ marginBottom: 16 }}>
-          <a href={item.source_url} target="_blank">
-            <strong>{item.request_category || 'Buyer Request'}</strong>
-          </a>
-          <p>{item.clean_text}</p>
-          <small>
-            {item.country || 'Unknown'} ·{' '}
-            {new Date(item.created_at).toLocaleDateString()}
-          </small>
-          <div style={{ color: '#999', fontSize: 12 }}>
-            🔒 Contact details for paid users
+      {data?.map(item => {
+        const title =
+          item.request_category?.replace(/^=+/, '') || 'Buyer Request';
+
+        const text =
+          item.clean_text
+            ?.replace(/^=+/, '')
+            ?.replace(/^\{.*"source_url".*\}$/, '') || '';
+
+        return (
+          <div
+            key={item.id}
+            style={{
+              padding: '16px 0',
+              borderBottom: '1px solid #eee',
+            }}
+          >
+            {item.source_url ? (
+              <a
+                href={item.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontWeight: 600,
+                  color: '#000',
+                  textDecoration: 'none',
+                }}
+              >
+                {title}
+              </a>
+            ) : (
+              <strong>{title}</strong>
+            )}
+
+            {text && <p style={{ margin: '8px 0' }}>{text}</p>}
+
+            <small style={{ color: '#666' }}>
+              {item.country || 'Unknown'} ·{' '}
+              {new Date(item.created_at).toLocaleDateString()}
+            </small>
+
+            <div style={{ color: '#999', fontSize: 12, marginTop: 6 }}>
+              🔒 Contact details available for paid users
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
+
+      {/* Pagination */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 32,
+        }}
+      >
+        {page > 1 && (
+          <a
+            href={`/?days=${days}&page=${page - 1}${
+              searchParams.q ? `&q=${encodeURIComponent(searchParams.q)}` : ''
+            }${searchParams.country ? `&country=${searchParams.country}` : ''}`}
+            style={pageBtn}
+          >
+            ← Previous
+          </a>
+        )}
+
+        {data && data.length === PAGE_SIZE && (
+          <a
+            href={`/?days=${days}&page=${page + 1}${
+              searchParams.q ? `&q=${encodeURIComponent(searchParams.q)}` : ''
+            }${searchParams.country ? `&country=${searchParams.country}` : ''}`}
+            style={pageBtn}
+          >
+            Next →
+          </a>
+        )}
+      </div>
     </main>
   );
 }
+
+const pageBtn = {
+  padding: '8px 14px',
+  borderRadius: 8,
+  border: '1px solid #ccc',
+  textDecoration: 'none',
+  color: '#000',
+  background: '#fafafa',
+  fontWeight: 500,
+};
