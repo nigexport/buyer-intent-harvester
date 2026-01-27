@@ -44,13 +44,35 @@ export default async function Home() {
             padding: '16px 0'
           }}
         >
-          <a href={item.source_url} target="_blank" rel="noopener noreferrer">
-            <strong>
-              {(item.request_category || 'Buyer Request').replace(/^=+/, '')}
-            </strong>
-          </a>
 
-          <p>{item.clean_text?.replace(/^=+/, '')}</p>
+          {(() => {
+            // Prefer source_url
+            let url = item.source_url;
+
+            // Fallback: try to extract URL from JSON-like clean_text
+            if (!url && item.clean_text?.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(item.clean_text);
+                if (parsed.source_url) url = parsed.source_url;
+              } catch {}
+            }
+
+            const title = (item.request_category || 'Buyer Request').replace(/^=+/, '');
+
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <strong>{title}</strong>
+              </a>
+            ) : (
+              <strong>{title}</strong>
+            );
+          })()}
+
+          <p>
+            {item.clean_text
+              ?.replace(/^=+/, '')
+              .replace(/^\{.*"source_url".*\}$/, '')}
+          </p>
 
           <small>
             {item.country || 'Unknown country'} ·{' '}
