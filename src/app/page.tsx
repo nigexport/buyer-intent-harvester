@@ -36,7 +36,10 @@ export default async function Home() {
 
       {data?.length === 0 && <p>No results yet.</p>}
 
-      {data?.map(item => (
+      {data
+        ?.filter(item => typeof item.source_url === 'string' && item.source_url.startsWith('http'))
+        .map(item => (
+      
         <div
           key={item.id}
           style={{
