@@ -1,32 +1,42 @@
 import { supabase } from '../lib/supabase';
+import type { CSSProperties } from 'react';
 
-const PAGE_SIZE = 20;
+
+const PAGE_SIZE = 15;
 
 export default async function Home({
   searchParams,
 }: {
   searchParams: { days?: string; page?: string; q?: string };
 }) {
-  /* -------------------------------
-     1. Days toggle (7 / 14)
-  -------------------------------- */
+  /* -----------------------
+     Days toggle
+  ------------------------ */
   const days = searchParams.days === '14' ? 14 : 7;
-
   const fromDate = new Date(
     Date.now() - days * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  /* -------------------------------
-     2. Pagination
-  -------------------------------- */
+  /* -----------------------
+     Pagination
+  ------------------------ */
   const page = Number(searchParams.page || '1');
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  /* -------------------------------
-     3. Search
-  -------------------------------- */
   const searchQuery = searchParams.q?.trim();
+
+  const styles: Record<string, CSSProperties> = {
+    controls: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    // other styles...
+  };
 
   let query = supabase
     .from('buyer_intents')
@@ -35,10 +45,8 @@ export default async function Home({
       id,
       source_url,
       clean_text,
-      company_name,
       request_category,
       country,
-      location,
       created_at
     `,
       { count: 'exact' }
@@ -47,135 +55,101 @@ export default async function Home({
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  // Full-text-ish search (cheap MVP version)
+  /* -----------------------
+     FIXED SEARCH
+  ------------------------ */
   if (searchQuery) {
-    query = query.ilike('clean_text', `%${searchQuery}%`);
+    query = query.or(
+      `clean_text.ilike.%${searchQuery}%,request_category.ilike.%${searchQuery}%`
+    );
   }
 
-  const { data, error, count } = await query;
+  const { data, error } = await query;
 
   if (error) {
     return (
       <main style={{ padding: 24 }}>
-        <h1>Error loading feed</h1>
+        <h2>Error loading feed</h2>
         <pre>{JSON.stringify(error, null, 2)}</pre>
       </main>
     );
   }
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Buyer Intent Feed</h1>
+    <main style={styles.container}>
+      <h1 style={styles.title}>Buyer Intent Feed</h1>
 
-      {/* -------------------------------
-          Controls
-      -------------------------------- */}
-      <div style={{ marginBottom: 16 }}>
-        <a href={`/?days=7${searchQuery ? `&q=${searchQuery}` : ''}`} style={{ marginRight: 12 }}>
-          Last 7 days
-        </a>
-        <a href={`/?days=14${searchQuery ? `&q=${searchQuery}` : ''}`}>
-          Last 14 days
-        </a>
+      {/* Controls */}
+      <div style={styles.controls}>
+        <div>
+          <a href="/?days=7" style={days === 7 ? styles.activeBtn : styles.btn}>
+            Last 7 days
+          </a>
+          <a href="/?days=14" style={days === 14 ? styles.activeBtn : styles.btn}>
+            Last 14 days
+          </a>
+        </div>
+
+        <form method="get" style={styles.searchForm}>
+          <input
+            name="q"
+            defaultValue={searchQuery}
+            placeholder="Search buyer requests…"
+            style={styles.searchInput}
+          />
+          <input type="hidden" name="days" value={days} />
+          <button type="submit" style={styles.searchBtn}>
+            Search
+          </button>
+        </form>
       </div>
 
-      {/* Search box */}
-      <form method="get" style={{ marginBottom: 24 }}>
-        <input
-          type="text"
-          name="q"
-          defaultValue={searchQuery}
-          placeholder="Search buyer requests..."
-          style={{ padding: 8, width: 280 }}
-        />
-        <input type="hidden" name="days" value={days} />
-        <button type="submit" style={{ marginLeft: 8 }}>
-          Search
-        </button>
-      </form>
+      {/* Feed */}
+      {data?.length === 0 && <p>No results found.</p>}
 
-      {data?.length === 0 && <p>No results yet.</p>}
+      {data?.map(item => {
+        const title =
+          item.request_category?.replace(/^=+/, '') || 'Buyer Request';
 
-      {/* -------------------------------
-          Feed
-      -------------------------------- */}
-      {data
-        ?.filter(
-          item =>
-            typeof item.source_url === 'string' &&
-            item.source_url.startsWith('http')
-        )
-        .map(item => (
-          <div
-            key={item.id}
-            style={{
-              borderBottom: '1px solid #ddd',
-              padding: '16px 0',
-            }}
-          >
-            {(() => {
-              let url = item.source_url;
+        const text =
+          item.clean_text
+            ?.replace(/^=+/, '')
+            ?.replace(/^\{.*"source_url".*\}$/, '') || '';
 
-              // Fallback: extract URL from JSON-like clean_text
-              if (!url && item.clean_text?.startsWith('{')) {
-                try {
-                  const parsed = JSON.parse(item.clean_text);
-                  if (parsed.source_url) url = parsed.source_url;
-                } catch {}
-              }
+        return (
+          <div key={item.id} style={styles.card}>
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.cardTitle}
+            >
+              {title}
+            </a>
 
-              const title = (item.request_category || 'Buyer Request').replace(
-                /^=+/,
-                ''
-              );
+            {text && <p style={styles.text}>{text}</p>}
 
-              return url ? (
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <strong>{title}</strong>
-                </a>
-              ) : (
-                <strong>{title}</strong>
-              );
-            })()}
-
-            <p>
-              {item.clean_text
-                ?.replace(/^=+/, '')
-                .replace(/^\{.*"source_url".*\}$/, '')}
-            </p>
-
-            <small>
+            <div style={styles.meta}>
               {item.country || 'Unknown country'} ·{' '}
               {new Date(item.created_at).toLocaleDateString()}
-            </small>
+            </div>
 
-            <div style={{ marginTop: 8, color: '#999' }}>
+            <div style={styles.locked}>
               🔒 Contact details available for paid users
             </div>
           </div>
-        ))}
+        );
+      })}
 
-      {/* -------------------------------
-          Pagination
-      -------------------------------- */}
-      <div style={{ marginTop: 24 }}>
+      {/* Pagination */}
+      <div style={styles.pagination}>
         {page > 1 && (
-          <a
-            href={`/?days=${days}&page=${page - 1}${
-              searchQuery ? `&q=${searchQuery}` : ''
-            }`}
-            style={{ marginRight: 16 }}
-          >
+          <a href={`/?days=${days}&page=${page - 1}`} style={styles.btn}>
             ← Previous
           </a>
         )}
-
         {data && data.length === PAGE_SIZE && (
-          <a
-            href={`/?days=${days}&page=${page + 1}${
-              searchQuery ? `&q=${searchQuery}` : ''
-            }`}
-          >
+          <a href={`/?days=${days}&page=${page + 1}`} style={styles.btn}>
             Next →
           </a>
         )}
@@ -183,3 +157,92 @@ export default async function Home({
     </main>
   );
 }
+
+/* =====================
+   SIMPLE STYLES
+===================== */
+
+const styles = {
+  container: {
+    maxWidth: 800,
+    margin: '0 auto',
+    padding: 24,
+    fontFamily: 'system-ui, sans-serif',
+  },
+  title: {
+    marginBottom: 16,
+  },
+  controls: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  btn: {
+    marginRight: 8,
+    padding: '6px 12px',
+    border: '1px solid #ccc',
+    borderRadius: 6,
+    textDecoration: 'none',
+    color: '#333',
+    fontSize: 14,
+  },
+  activeBtn: {
+    marginRight: 8,
+    padding: '6px 12px',
+    borderRadius: 6,
+    background: '#000',
+    color: '#fff',
+    textDecoration: 'none',
+    fontSize: 14,
+  },
+  searchForm: {
+    display: 'flex',
+    gap: 8,
+  },
+  searchInput: {
+    padding: 8,
+    borderRadius: 6,
+    border: '1px solid #ccc',
+    width: 220,
+  },
+  searchBtn: {
+    padding: '8px 14px',
+    borderRadius: 6,
+    border: 'none',
+    background: '#000',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  card: {
+    padding: '16px 0',
+    borderBottom: '1px solid #eee',
+  },
+  cardTitle: {
+    fontWeight: 600,
+    textDecoration: 'none',
+    color: '#000',
+    display: 'block',
+    marginBottom: 6,
+  },
+  text: {
+    margin: '6px 0 10px',
+    color: '#333',
+  },
+  meta: {
+    fontSize: 12,
+    color: '#666',
+  },
+  locked: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#999',
+  },
+  pagination: {
+    marginTop: 24,
+    display: 'flex',
+    gap: 12,
+  },
+};
