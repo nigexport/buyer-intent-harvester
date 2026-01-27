@@ -19,7 +19,6 @@ export default async function Home() {
       location,
       created_at
     `)
-    .gte('created_at', daysAgo(7))
     .order('created_at', { ascending: false })
     .limit(50);
 
