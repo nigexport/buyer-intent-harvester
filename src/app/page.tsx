@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { CSSProperties } from 'react';
 
-
 const PAGE_SIZE = 15;
 
 export default async function Home({
@@ -26,18 +25,6 @@ export default async function Home({
 
   const searchQuery = searchParams.q?.trim();
 
-  const styles: Record<string, CSSProperties> = {
-    controls: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 24,
-      flexWrap: 'wrap',
-      gap: 12,
-    },
-    // other styles...
-  };
-
   let query = supabase
     .from('buyer_intents')
     .select(
@@ -55,9 +42,6 @@ export default async function Home({
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  /* -----------------------
-     FIXED SEARCH
-  ------------------------ */
   if (searchQuery) {
     query = query.or(
       `clean_text.ilike.%${searchQuery}%,request_category.ilike.%${searchQuery}%`
@@ -68,7 +52,7 @@ export default async function Home({
 
   if (error) {
     return (
-      <main style={{ padding: 24 }}>
+      <main style={styles.container}>
         <h2>Error loading feed</h2>
         <pre>{JSON.stringify(error, null, 2)}</pre>
       </main>
@@ -105,7 +89,9 @@ export default async function Home({
       </div>
 
       {/* Feed */}
-      {data?.length === 0 && <p>No results found.</p>}
+      {data?.length === 0 && (
+        <p style={styles.empty}>No buyer requests found.</p>
+      )}
 
       {data?.map(item => {
         const title =
@@ -118,14 +104,18 @@ export default async function Home({
 
         return (
           <div key={item.id} style={styles.card}>
-            <a
-              href={item.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.cardTitle}
-            >
-              {title}
-            </a>
+            {item.source_url ? (
+              <a
+                href={item.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.cardTitle}
+              >
+                {title}
+              </a>
+            ) : (
+              <div style={styles.cardTitle}>{title}</div>
+            )}
 
             {text && <p style={styles.text}>{text}</p>}
 
@@ -159,18 +149,22 @@ export default async function Home({
 }
 
 /* =====================
-   SIMPLE STYLES
+   CLEAN UI STYLES
 ===================== */
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   container: {
-    maxWidth: 800,
+    maxWidth: 900,
     margin: '0 auto',
-    padding: 24,
-    fontFamily: 'system-ui, sans-serif',
+    padding: 32,
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+    background: '#fafafa',
+    minHeight: '100vh',
   },
   title: {
-    marginBottom: 16,
+    marginBottom: 24,
+    fontSize: 28,
+    fontWeight: 700,
   },
   controls: {
     display: 'flex',
@@ -182,18 +176,19 @@ const styles = {
   },
   btn: {
     marginRight: 8,
-    padding: '6px 12px',
+    padding: '8px 14px',
     border: '1px solid #ccc',
-    borderRadius: 6,
+    borderRadius: 8,
     textDecoration: 'none',
     color: '#333',
     fontSize: 14,
+    background: '#fff',
   },
   activeBtn: {
     marginRight: 8,
-    padding: '6px 12px',
-    borderRadius: 6,
-    background: '#000',
+    padding: '8px 14px',
+    borderRadius: 8,
+    background: '#111',
     color: '#fff',
     textDecoration: 'none',
     fontSize: 14,
@@ -203,46 +198,55 @@ const styles = {
     gap: 8,
   },
   searchInput: {
-    padding: 8,
-    borderRadius: 6,
+    padding: '8px 10px',
+    borderRadius: 8,
     border: '1px solid #ccc',
-    width: 220,
+    width: 240,
   },
   searchBtn: {
-    padding: '8px 14px',
-    borderRadius: 6,
+    padding: '8px 16px',
+    borderRadius: 8,
     border: 'none',
-    background: '#000',
+    background: '#111',
     color: '#fff',
     cursor: 'pointer',
   },
   card: {
-    padding: '16px 0',
-    borderBottom: '1px solid #eee',
+    background: '#fff',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 14,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   },
   cardTitle: {
     fontWeight: 600,
+    fontSize: 16,
     textDecoration: 'none',
-    color: '#000',
+    color: '#111',
     display: 'block',
     marginBottom: 6,
   },
   text: {
     margin: '6px 0 10px',
     color: '#333',
+    lineHeight: 1.5,
   },
   meta: {
     fontSize: 12,
     color: '#666',
   },
   locked: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 12,
     color: '#999',
   },
   pagination: {
-    marginTop: 24,
+    marginTop: 32,
     display: 'flex',
     gap: 12,
+  },
+  empty: {
+    color: '#666',
+    fontStyle: 'italic',
   },
 };
