@@ -9,18 +9,8 @@ function daysAgo(days: number) {
 export default async function Home() {
   const { data, error } = await supabase
     .from('buyer_intents')
-    .select(`
-      id,
-      source_url,
-      clean_text,
-      company_name,
-      request_category,
-      country,
-      location,
-      created_at
-    `)
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .select('*')
+    .limit(5);
 
   if (error) {
     return (
