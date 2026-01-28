@@ -14,6 +14,11 @@ type BuyerIntent = {
   created_at: string;
 };
 
+type PopularKeyword = {
+  keyword: string;
+  total: number;
+};
+
 export default async function Home({
   searchParams,
 }: {
@@ -26,6 +31,9 @@ export default async function Home({
     industry?: string;
   };
 }) {
+  /* -----------------------
+     Pagination & date
+  ------------------------ */
   const days = searchParams.days === '14' ? 14 : 7;
   const page = Number(searchParams.page || '1');
   const from = (page - 1) * PAGE_SIZE;
@@ -35,6 +43,9 @@ export default async function Home({
     Date.now() - days * 24 * 60 * 60 * 1000
   ).toISOString();
 
+  /* -----------------------
+     Base query
+  ------------------------ */
   let query = supabase
     .from('buyer_intents')
     .select(
@@ -73,7 +84,28 @@ export default async function Home({
   }
 
   const { data, error } = await query;
-  const items = data as BuyerIntent[];
+  const items: BuyerIntent[] = data ?? [];
+
+  /* -----------------------
+     Popular keywords
+  ------------------------ */
+  const { data: keywordsData } = await supabase
+    .from('popular_keywords_7d')
+    .select('*');
+
+  const keywords: PopularKeyword[] = keywordsData ?? [];
+
+  /* -----------------------
+     Country dropdown
+  ------------------------ */
+  const { data: countryRows } = await supabase
+    .from('buyer_intents')
+    .select('country')
+    .not('country', 'is', null);
+
+  const countries = Array.from(
+    new Set((countryRows ?? []).map(r => r.country).filter(Boolean))
+  ).sort();
 
   if (error) {
     return (
@@ -84,45 +116,43 @@ export default async function Home({
     );
   }
 
-  /* -----------------------
-     Country dropdown data
-  ------------------------ */
-  const { data: countryRows } = await supabase
-    .from('buyer_intents')
-    .select('country')
-    .not('country', 'is', null);
-
-  const countries = Array.from(
-    new Set(countryRows?.map(r => r.country))
-  ).sort();
-
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
       <h1 style={{ marginBottom: 16 }}>Buyer Intent Feed</h1>
 
       <FeedUI
         countries={countries}
+        keywords={keywords}
         currentDays={days}
         currentPage={page}
         currentQuery={searchParams.q}
         currentCountry={searchParams.country}
       />
 
-      {data?.length === 0 && <p>No results found.</p>}
+      {/* Popular keywords */}
+      {keywords.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <strong>Popular searches:</strong>
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {keywords.map(k => (
+              <a
+                key={k.keyword}
+                href={`/?q=${encodeURIComponent(k.keyword)}`}
+                style={keywordChip}
+              >
+                {k.keyword} ({k.total})
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
+      {items.length === 0 && <p>No results found.</p>}
+
+      {/* Feed list */}
       {items.map(item => {
         const title =
-          <div key={item.id}>
-            <strong>{item.request_category?.replace(/^=+/, '') || 'Buyer Request'}</strong>
-
-            <div style={{ fontSize: 12, color: '#666' }}>
-              {item.source_type || 'web'} · {item.country || 'Unknown'}
-            </div>
-
-            <div style={{ fontSize: 12, color: '#666' }}>
-              {item.industry || 'General'} · {item.source_type || 'web'}
-            </div>
-          </div>    
+          item.request_category?.replace(/^=+/, '') || 'Buyer Request';
 
         const text =
           item.clean_text
@@ -142,11 +172,7 @@ export default async function Home({
                 href={item.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  fontWeight: 600,
-                  color: '#000',
-                  textDecoration: 'none',
-                }}
+                style={{ fontWeight: 600, color: '#000', textDecoration: 'none' }}
               >
                 {title}
               </a>
@@ -155,6 +181,10 @@ export default async function Home({
             )}
 
             {text && <p style={{ margin: '8px 0' }}>{text}</p>}
+
+            <div style={{ fontSize: 12, color: '#666' }}>
+              {item.industry || 'General'} · {item.source_type || 'web'}
+            </div>
 
             <small style={{ color: '#666' }}>
               {item.country || 'Unknown'} ·{' '}
@@ -202,6 +232,9 @@ export default async function Home({
   );
 }
 
+/* -----------------------
+   Styles
+------------------------ */
 const pageBtn = {
   padding: '8px 14px',
   borderRadius: 8,
@@ -210,4 +243,14 @@ const pageBtn = {
   color: '#000',
   background: '#fafafa',
   fontWeight: 500,
+};
+
+const keywordChip = {
+  padding: '4px 10px',
+  border: '1px solid #ddd',
+  borderRadius: 12,
+  fontSize: 13,
+  textDecoration: 'none',
+  color: '#000',
+  background: '#fafafa',
 };

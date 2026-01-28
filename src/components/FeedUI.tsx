@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
+
 type Props = {
   countries: string[];
+  keywords: { keyword: string; total: number }[];
   currentDays: number;
   currentPage: number;
   currentQuery?: string;
@@ -14,19 +17,20 @@ export default function FeedUI({
   currentQuery,
   currentCountry,
 }: Props) {
+  /* -----------------------
+     Auto refresh (2 mins)
+  ------------------------ */
+  useEffect(() => {
+    const id = setInterval(() => {
+      window.location.reload();
+    }, 120000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 12,
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-      }}
-    >
+    <div style={container}>
       {/* Day Toggle */}
-      <div>
+      <div style={leftControls}>
         <a
           href={`/?days=7${
             currentQuery ? `&q=${encodeURIComponent(currentQuery)}` : ''
@@ -46,8 +50,8 @@ export default function FeedUI({
         </a>
       </div>
 
-      {/* Search + Country */}
-      <form method="get" style={{ display: 'flex', gap: 8 }}>
+      {/* Search + Filters */}
+      <form method="get" style={form}>
         <input
           name="q"
           defaultValue={currentQuery || ''}
@@ -55,7 +59,11 @@ export default function FeedUI({
           style={input}
         />
 
-        <select name="country" defaultValue={currentCountry || ''} style={input}>
+        <select
+          name="country"
+          defaultValue={currentCountry || ''}
+          style={input}
+        >
           <option value="">All countries</option>
           {countries.map(c => (
             <option key={c} value={c}>
@@ -64,7 +72,7 @@ export default function FeedUI({
           ))}
         </select>
 
-        <select name="industry" defaultValue="">
+        <select name="industry" defaultValue="" style={input}>
           <option value="">All industries</option>
           <option value="Procurement">Procurement</option>
           <option value="Construction">Construction</option>
@@ -75,7 +83,7 @@ export default function FeedUI({
           <option value="Events">Events</option>
         </select>
 
-        <select name="source_type" defaultValue="">
+        <select name="source_type" defaultValue="" style={input}>
           <option value="">All sources</option>
           <option value="Government">Government</option>
           <option value="Forum">Forum</option>
@@ -93,6 +101,32 @@ export default function FeedUI({
   );
 }
 
+/* -----------------------
+   Styles
+------------------------ */
+
+const container = {
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  gap: 12,
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 24,
+};
+
+const leftControls = {
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  gap: 8,
+};
+
+const form = {
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  gap: 8,
+  alignItems: 'center',
+};
+
 const btn = {
   padding: '6px 12px',
   border: '1px solid #ccc',
@@ -100,7 +134,6 @@ const btn = {
   textDecoration: 'none',
   color: '#333',
   fontSize: 14,
-  marginRight: 8,
 };
 
 const activeBtn = {
@@ -114,6 +147,7 @@ const input = {
   borderRadius: 6,
   border: '1px solid #ccc',
   fontSize: 14,
+  minWidth: 140,
 };
 
 const searchBtn = {
