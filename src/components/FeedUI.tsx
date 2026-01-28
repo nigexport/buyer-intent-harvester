@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 type Props = {
   countries: string[];
@@ -10,7 +11,9 @@ type Props = {
   currentCountry?: string;
   currentIndustry?: string;
   currentSourceType?: string;
-  buildUrl: (overrides: Record<string, string | number | undefined>) => string;
+  page: number;
+  pageSize: number;
+  hasNext: boolean;
 };
 
 export default function FeedUI({
@@ -21,8 +24,20 @@ export default function FeedUI({
   currentCountry,
   currentIndustry,
   currentSourceType,
-  buildUrl,
+  page,
+  hasNext,
 }: Props) {
+  const params = useSearchParams();
+
+  const buildUrl = (overrides: Record<string, string | number | undefined>) => {
+    const p = new URLSearchParams(params.toString());
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (v === undefined || v === '') p.delete(k);
+      else p.set(k, String(v));
+    });
+    return `/?${p.toString()}`;
+  };
+
   /* Realtime refresh */
   useEffect(() => {
     const id = setInterval(() => window.location.reload(), 120000);
@@ -76,7 +91,7 @@ export default function FeedUI({
         </form>
       </div>
 
-      {/* Popular keywords */}
+      {/* Popular searches */}
       {keywords.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <strong>Popular searches:</strong>
@@ -93,6 +108,16 @@ export default function FeedUI({
           </div>
         </div>
       )}
+
+      {/* Pagination */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+        {page > 1 && (
+          <a href={buildUrl({ page: page - 1 })} style={btn}>← Previous</a>
+        )}
+        {hasNext && (
+          <a href={buildUrl({ page: page + 1 })} style={btn}>Next →</a>
+        )}
+      </div>
     </>
   );
 }
@@ -102,7 +127,6 @@ const btn = {
   padding: '6px 12px',
   border: '1px solid #ccc',
   borderRadius: 6,
-  marginRight: 8,
   textDecoration: 'none',
   color: '#333',
 };
@@ -129,6 +153,5 @@ const keywordBtn = {
   border: '1px solid #ddd',
   textDecoration: 'none',
   fontSize: 13,
-  color: '#000',
   background: '#fafafa',
 };

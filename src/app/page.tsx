@@ -39,7 +39,7 @@ export default async function Home({
   ).toISOString();
 
   /* -----------------------
-     Query
+     Main query
   ------------------------ */
   let query = supabase
     .from('buyer_intents')
@@ -66,24 +66,16 @@ export default async function Home({
     );
   }
 
-  if (searchParams.country) {
-    query = query.eq('country', searchParams.country);
-  }
-
-  if (searchParams.industry) {
-    query = query.eq('industry', searchParams.industry);
-  }
-
-  if (searchParams.source_type) {
-    query = query.eq('source_type', searchParams.source_type);
-  }
+  if (searchParams.country) query = query.eq('country', searchParams.country);
+  if (searchParams.industry) query = query.eq('industry', searchParams.industry);
+  if (searchParams.source_type) query = query.eq('source_type', searchParams.source_type);
 
   const { data, error } = await query;
-  const items = (data || []) as BuyerIntent[];
+  if (error) return <pre>{JSON.stringify(error, null, 2)}</pre>;
 
-  if (error) {
-    return <pre>{JSON.stringify(error, null, 2)}</pre>;
-  }
+  const items = (data || []).filter(
+    i => i.clean_text && !i.clean_text.startsWith('{') && i.clean_text.length > 40
+  ) as BuyerIntent[];
 
   /* -----------------------
      Countries
@@ -104,45 +96,26 @@ export default async function Home({
     .from('popular_keywords_7d')
     .select('*');
 
-  const safeKeywords = keywords || [];
-
-  /* -----------------------
-     Clean junk rows
-  ------------------------ */
-  const visibleItems = items.filter(
-    i => i.clean_text && !i.clean_text.startsWith('{') && i.clean_text.length > 40
-  );
-
-  /* -----------------------
-     Helper to build URLs
-  ------------------------ */
-  const buildUrl = (overrides: Record<string, string | number | undefined>) => {
-    const params = { ...searchParams, ...overrides };
-    const query = Object.entries(params)
-      .filter(([, v]) => v !== undefined && v !== '')
-      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
-      .join('&');
-    return `/?${query}`;
-  };
-
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
       <h1>Buyer Intent Feed</h1>
 
       <FeedUI
         countries={countries}
-        keywords={safeKeywords}
+        keywords={keywords || []}
         currentDays={days}
         currentQuery={searchParams.q}
         currentCountry={searchParams.country}
         currentIndustry={searchParams.industry}
         currentSourceType={searchParams.source_type}
-        buildUrl={buildUrl}
+        page={page}
+        pageSize={PAGE_SIZE}
+        hasNext={items.length === PAGE_SIZE}
       />
 
-      {visibleItems.length === 0 && <p>No results found.</p>}
+      {items.length === 0 && <p>No results found.</p>}
 
-      {visibleItems.map(item => (
+      {items.map(item => (
         <div key={item.id} style={{ padding: '16px 0', borderBottom: '1px solid #eee' }}>
           <a
             href={item.source_url || '#'}
@@ -166,29 +139,6 @@ export default async function Home({
           </div>
         </div>
       ))}
-
-      {/* Pagination */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32 }}>
-        {page > 1 && (
-          <a href={buildUrl({ page: page - 1 })} style={pageBtn}>
-            ← Previous
-          </a>
-        )}
-
-        {visibleItems.length === PAGE_SIZE && (
-          <a href={buildUrl({ page: page + 1 })} style={pageBtn}>
-            Next →
-          </a>
-        )}
-      </div>
     </main>
   );
 }
-
-const pageBtn = {
-  padding: '8px 14px',
-  borderRadius: 8,
-  border: '1px solid #ccc',
-  textDecoration: 'none',
-  color: '#000',
-};
