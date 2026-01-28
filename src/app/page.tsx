@@ -3,6 +3,17 @@ import FeedUI from '../components/FeedUI';
 
 const PAGE_SIZE = 15;
 
+type BuyerIntent = {
+  id: number;
+  source_url: string | null;
+  clean_text: string | null;
+  request_category: string | null;
+  industry: string | null;
+  country: string | null;
+  source_type: string | null;
+  created_at: string;
+};
+
 export default async function Home({
   searchParams,
 }: {
@@ -11,6 +22,8 @@ export default async function Home({
     page?: string;
     q?: string;
     country?: string;
+    source_type?: string;
+    industry?: string;
   };
 }) {
   const days = searchParams.days === '14' ? 14 : 7;
@@ -30,7 +43,9 @@ export default async function Home({
       source_url,
       clean_text,
       request_category,
+      industry,
       country,
+      source_type,
       created_at
     `,
       { count: 'exact' }
@@ -49,7 +64,16 @@ export default async function Home({
     query = query.eq('country', searchParams.country);
   }
 
+  if (searchParams.industry) {
+    query = query.eq('industry', searchParams.industry);
+  }
+
+  if (searchParams.source_type) {
+    query = query.eq('source_type', searchParams.source_type);
+  }
+
   const { data, error } = await query;
+  const items = data as BuyerIntent[];
 
   if (error) {
     return (
@@ -86,9 +110,19 @@ export default async function Home({
 
       {data?.length === 0 && <p>No results found.</p>}
 
-      {data?.map(item => {
+      {items.map(item => {
         const title =
-          item.request_category?.replace(/^=+/, '') || 'Buyer Request';
+          <div key={item.id}>
+            <strong>{item.request_category?.replace(/^=+/, '') || 'Buyer Request'}</strong>
+
+            <div style={{ fontSize: 12, color: '#666' }}>
+              {item.source_type || 'web'} · {item.country || 'Unknown'}
+            </div>
+
+            <div style={{ fontSize: 12, color: '#666' }}>
+              {item.industry || 'General'} · {item.source_type || 'web'}
+            </div>
+          </div>    
 
         const text =
           item.clean_text
@@ -153,7 +187,7 @@ export default async function Home({
           </a>
         )}
 
-        {data && data.length === PAGE_SIZE && (
+        {items.length === PAGE_SIZE && (
           <a
             href={`/?days=${days}&page=${page + 1}${
               searchParams.q ? `&q=${encodeURIComponent(searchParams.q)}` : ''

@@ -64,6 +64,25 @@ export default function FeedUI({
           ))}
         </select>
 
+        <select name="industry" defaultValue="">
+          <option value="">All industries</option>
+          <option value="Procurement">Procurement</option>
+          <option value="Construction">Construction</option>
+          <option value="IT">IT</option>
+          <option value="Oil & Gas">Oil & Gas</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Staffing">Staffing</option>
+          <option value="Events">Events</option>
+        </select>
+
+        <select name="source_type" defaultValue="">
+          <option value="">All sources</option>
+          <option value="Government">Government</option>
+          <option value="Forum">Forum</option>
+          <option value="Social">Social</option>
+          <option value="Web">Web</option>
+        </select>
+
         <input type="hidden" name="days" value={currentDays} />
 
         <button type="submit" style={searchBtn}>
