@@ -14,11 +14,6 @@ type BuyerIntent = {
   created_at: string;
 };
 
-type PopularKeyword = {
-  keyword: string;
-  total: number;
-};
-
 export default async function Home({
   searchParams,
 }: {
@@ -27,21 +22,24 @@ export default async function Home({
     page?: string;
     q?: string;
     country?: string;
-    source_type?: string;
     industry?: string;
+    source_type?: string;
   };
 }) {
   /* -----------------------
-     Pagination & date
+     Time window
   ------------------------ */
   const days = searchParams.days === '14' ? 14 : 7;
-  const page = Number(searchParams.page || '1');
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
-
   const fromDate = new Date(
     Date.now() - days * 24 * 60 * 60 * 1000
   ).toISOString();
+
+  /* -----------------------
+     Pagination
+  ------------------------ */
+  const page = Number(searchParams.page || '1');
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   /* -----------------------
      Base query
@@ -65,6 +63,9 @@ export default async function Home({
     .order('created_at', { ascending: false })
     .range(from, to);
 
+  /* -----------------------
+     Filters
+  ------------------------ */
   if (searchParams.q) {
     query = query.or(
       `clean_text.ilike.%${searchParams.q}%,request_category.ilike.%${searchParams.q}%`
@@ -84,28 +85,7 @@ export default async function Home({
   }
 
   const { data, error } = await query;
-  const items: BuyerIntent[] = data ?? [];
-
-  /* -----------------------
-     Popular keywords
-  ------------------------ */
-  const { data: keywordsData } = await supabase
-    .from('popular_keywords_7d')
-    .select('*');
-
-  const keywords: PopularKeyword[] = keywordsData ?? [];
-
-  /* -----------------------
-     Country dropdown
-  ------------------------ */
-  const { data: countryRows } = await supabase
-    .from('buyer_intents')
-    .select('country')
-    .not('country', 'is', null);
-
-  const countries = Array.from(
-    new Set((countryRows ?? []).map(r => r.country).filter(Boolean))
-  ).sort();
+  const items = (data || []) as BuyerIntent[];
 
   if (error) {
     return (
@@ -116,41 +96,54 @@ export default async function Home({
     );
   }
 
+  /* -----------------------
+     Country dropdown data
+  ------------------------ */
+  const { data: countryRows } = await supabase
+    .from('buyer_intents')
+    .select('country')
+    .not('country', 'is', null);
+
+  const countries = Array.from(
+    new Set((countryRows || []).map(r => r.country))
+  ).sort();
+
+  /* -----------------------
+     Popular keywords (7d)
+  ------------------------ */
+  const { data: keywords } = await supabase
+    .from('popular_keywords_7d')
+    .select('*');
+
+  const safeKeywords = keywords || [];
+
+  /* -----------------------
+     Junk guard (frontend)
+  ------------------------ */
+  const visibleItems = items.filter(i =>
+    i.clean_text &&
+    i.clean_text.length > 40 &&
+    !i.clean_text.startsWith('{')
+  );
+
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
       <h1 style={{ marginBottom: 16 }}>Buyer Intent Feed</h1>
 
       <FeedUI
         countries={countries}
-        keywords={keywords}
+        keywords={safeKeywords}
         currentDays={days}
         currentPage={page}
         currentQuery={searchParams.q}
         currentCountry={searchParams.country}
+        currentIndustry={searchParams.industry}
+        currentSourceType={searchParams.source_type}
       />
 
-      {/* Popular keywords */}
-      {keywords.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <strong>Popular searches:</strong>
-          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {keywords.map(k => (
-              <a
-                key={k.keyword}
-                href={`/?q=${encodeURIComponent(k.keyword)}`}
-                style={keywordChip}
-              >
-                {k.keyword} ({k.total})
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      {visibleItems.length === 0 && <p>No results found.</p>}
 
-      {items.length === 0 && <p>No results found.</p>}
-
-      {/* Feed list */}
-      {items.map(item => {
+      {visibleItems.map(item => {
         const title =
           item.request_category?.replace(/^=+/, '') || 'Buyer Request';
 
@@ -172,7 +165,7 @@ export default async function Home({
                 href={item.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontWeight: 600, color: '#000', textDecoration: 'none' }}
+                style={{ fontWeight: 600, textDecoration: 'none', color: '#000' }}
               >
                 {title}
               </a>
@@ -182,12 +175,9 @@ export default async function Home({
 
             {text && <p style={{ margin: '8px 0' }}>{text}</p>}
 
-            <div style={{ fontSize: 12, color: '#666' }}>
-              {item.industry || 'General'} · {item.source_type || 'web'}
-            </div>
-
             <small style={{ color: '#666' }}>
-              {item.country || 'Unknown'} ·{' '}
+              {item.country || 'Unknown'} · {item.industry || 'General'} ·{' '}
+              {item.source_type || 'Web'} ·{' '}
               {new Date(item.created_at).toLocaleDateString()}
             </small>
 
@@ -199,31 +189,14 @@ export default async function Home({
       })}
 
       {/* Pagination */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginTop: 32,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32 }}>
         {page > 1 && (
-          <a
-            href={`/?days=${days}&page=${page - 1}${
-              searchParams.q ? `&q=${encodeURIComponent(searchParams.q)}` : ''
-            }${searchParams.country ? `&country=${searchParams.country}` : ''}`}
-            style={pageBtn}
-          >
+          <a href={`/?days=${days}&page=${page - 1}`} style={pageBtn}>
             ← Previous
           </a>
         )}
-
-        {items.length === PAGE_SIZE && (
-          <a
-            href={`/?days=${days}&page=${page + 1}${
-              searchParams.q ? `&q=${encodeURIComponent(searchParams.q)}` : ''
-            }${searchParams.country ? `&country=${searchParams.country}` : ''}`}
-            style={pageBtn}
-          >
+        {visibleItems.length === PAGE_SIZE && (
+          <a href={`/?days=${days}&page=${page + 1}`} style={pageBtn}>
             Next →
           </a>
         )}
@@ -232,9 +205,6 @@ export default async function Home({
   );
 }
 
-/* -----------------------
-   Styles
------------------------- */
 const pageBtn = {
   padding: '8px 14px',
   borderRadius: 8,
@@ -243,14 +213,4 @@ const pageBtn = {
   color: '#000',
   background: '#fafafa',
   fontWeight: 500,
-};
-
-const keywordChip = {
-  padding: '4px 10px',
-  border: '1px solid #ddd',
-  borderRadius: 12,
-  fontSize: 13,
-  textDecoration: 'none',
-  color: '#000',
-  background: '#fafafa',
 };
