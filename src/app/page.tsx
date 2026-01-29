@@ -38,16 +38,31 @@ export default async function Page({
     );
   }
 
+  /**
+   * 🔥 COUNTRY (handles string OR json)
+   */
   if (searchParams.country) {
-    query = query.eq("country", searchParams.country);
+    query = query.ilike(
+      "country::text",
+      `%${searchParams.country}%`
+    );
   }
 
+  /**
+   * 🔥 INDUSTRY (case-insensitive)
+   */
   if (searchParams.industry) {
-    query = query.eq("industry", searchParams.industry);
+    query = query.ilike("industry", `%${searchParams.industry}%`);
   }
 
+  /**
+   * 🔥 SOURCE TYPE (defensive)
+   */
   if (searchParams.source_type) {
-    query = query.eq("source_type", searchParams.source_type);
+    query = query.ilike(
+      "source_type::text",
+      `%${searchParams.source_type}%`
+    );
   }
 
   const { data, error } = await query;
