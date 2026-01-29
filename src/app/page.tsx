@@ -94,3 +94,4 @@ export default async function Page({
     </main>
   );
 }
+console.log('PAGE RENDERED AT', new Date().toISOString());
