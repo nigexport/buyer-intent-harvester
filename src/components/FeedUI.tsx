@@ -41,7 +41,14 @@ export default function FeedUI({
 
     const url = `/?${params.toString()}`;
 
-    console.log("NAVIGATING TO:", url); // 🔍 DEBUG LINE
+    const currentUrl =
+      window.location.pathname + window.location.search;
+
+    if (url === currentUrl) {
+      console.log("URL unchanged — forcing refresh");
+      router.refresh(); // 🔥 THIS IS THE KEY
+      return;
+    }
 
     router.replace(url, { scroll: false });
   }
