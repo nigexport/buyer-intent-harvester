@@ -1,19 +1,22 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+
+type Keyword = {
+  keyword: string;
+  total: number;
+};
 
 type Props = {
   countries: string[];
-  keywords: { keyword: string; total: number }[];
+  keywords: Keyword[];
   currentDays: number;
+  currentPage: number;
   currentQuery?: string;
   currentCountry?: string;
   currentIndustry?: string;
   currentSourceType?: string;
-  page: number;
-  pageSize: number;
-  hasNext: boolean;
 };
 
 export default function FeedUI({
@@ -24,114 +27,148 @@ export default function FeedUI({
   currentCountry,
   currentIndustry,
   currentSourceType,
-  page,
-  hasNext,
 }: Props) {
-  const params = useSearchParams();
+  const router = useRouter();
 
-  const buildUrl = (overrides: Record<string, string | number | undefined>) => {
-    const p = new URLSearchParams(params.toString());
-    Object.entries(overrides).forEach(([k, v]) => {
-      if (v === undefined || v === '') p.delete(k);
-      else p.set(k, String(v));
-    });
-    return `/?${p.toString()}`;
-  };
-
-  /* Realtime refresh */
   useEffect(() => {
-    const id = setInterval(() => window.location.reload(), 120000);
+    const id = setInterval(() => router.refresh(), 120000);
     return () => clearInterval(id);
-  }, []);
+  }, [router]);
+
+  const buildUrl = (updates: Record<string, string | undefined>) => {
+    const params = new URLSearchParams();
+
+    params.set('days', String(updates.days ?? currentDays));
+    if (updates.q ?? currentQuery) params.set('q', updates.q ?? currentQuery!);
+    if (updates.country ?? currentCountry)
+      params.set('country', updates.country ?? currentCountry!);
+    if (updates.industry ?? currentIndustry)
+      params.set('industry', updates.industry ?? currentIndustry!);
+    if (updates.source_type ?? currentSourceType)
+      params.set('source_type', updates.source_type ?? currentSourceType!);
+
+    return `/?${params.toString()}`;
+  };
 
   return (
     <>
       {/* Controls */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+      <div style={controls}>
         <div>
-          <a href={buildUrl({ days: 7, page: 1 })} style={currentDays === 7 ? activeBtn : btn}>
+          <button
+            onClick={() => router.push(buildUrl({ days: '7' }))}
+            style={currentDays === 7 ? activeBtn : btn}
+          >
             Last 7 days
-          </a>
-          <a href={buildUrl({ days: 14, page: 1 })} style={currentDays === 14 ? activeBtn : btn}>
+          </button>
+
+          <button
+            onClick={() => router.push(buildUrl({ days: '14' }))}
+            style={currentDays === 14 ? activeBtn : btn}
+          >
             Last 14 days
-          </a>
+          </button>
         </div>
 
-        <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input name="q" defaultValue={currentQuery || ''} placeholder="Search…" style={input} />
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            router.push(
+              buildUrl({
+                q: (form.q as HTMLInputElement).value,
+                country: (form.country as HTMLSelectElement).value,
+                industry: (form.industry as HTMLSelectElement).value,
+                source_type: (form.source_type as HTMLSelectElement).value,
+              })
+            );
+          }}
+          style={formRow}
+        >
+          <input name="q" defaultValue={currentQuery} placeholder="Search…" style={input} />
 
-          <select name="country" defaultValue={currentCountry || ''} style={input}>
+          <select name="country" defaultValue={currentCountry ?? ''} style={input}>
             <option value="">All countries</option>
             {countries.map(c => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c}>{c}</option>
             ))}
           </select>
 
-          <select name="industry" defaultValue={currentIndustry || ''} style={input}>
+          <select name="industry" defaultValue={currentIndustry ?? ''} style={input}>
             <option value="">All industries</option>
-            <option value="Procurement">Procurement</option>
-            <option value="Construction">Construction</option>
-            <option value="IT">IT</option>
-            <option value="Oil & Gas">Oil & Gas</option>
-            <option value="Healthcare">Healthcare</option>
-            <option value="Staffing">Staffing</option>
-            <option value="Events">Events</option>
+            <option>Procurement</option>
+            <option>Construction</option>
+            <option>IT</option>
+            <option>Oil & Gas</option>
+            <option>Healthcare</option>
+            <option>Staffing</option>
+            <option>Events</option>
           </select>
 
-          <select name="source_type" defaultValue={currentSourceType || ''} style={input}>
+          <select name="source_type" defaultValue={currentSourceType ?? ''} style={input}>
             <option value="">All sources</option>
-            <option value="Government">Government</option>
-            <option value="Forum">Forum</option>
-            <option value="Social">Social</option>
-            <option value="Web">Web</option>
+            <option>Government</option>
+            <option>Forum</option>
+            <option>Social</option>
+            <option>Web</option>
           </select>
 
-          <input type="hidden" name="days" value={currentDays} />
-          <button type="submit" style={searchBtn}>Search</button>
+          <button type="submit" style={searchBtn}>
+            Search
+          </button>
         </form>
       </div>
 
-      {/* Popular searches */}
+      {/* Popular keywords */}
       {keywords.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <strong>Popular searches:</strong>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+          <div style={chipsRow}>
             {keywords.map(k => (
-              <a
+              <button
                 key={k.keyword}
-                href={buildUrl({ q: k.keyword, page: 1 })}
-                style={keywordBtn}
+                onClick={() => router.push(buildUrl({ q: k.keyword }))}
+                style={chip}
               >
                 {k.keyword} ({k.total})
-              </a>
+              </button>
             ))}
           </div>
         </div>
       )}
-
-      {/* Pagination */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-        {page > 1 && (
-          <a href={buildUrl({ page: page - 1 })} style={btn}>← Previous</a>
-        )}
-        {hasNext && (
-          <a href={buildUrl({ page: page + 1 })} style={btn}>Next →</a>
-        )}
-      </div>
     </>
   );
 }
 
-/* Styles */
+/* ---------- styles ---------- */
+
+const controls = {
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  gap: 12,
+  justifyContent: 'space-between',
+  marginBottom: 24,
+};
+
+const formRow = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap' as const,
+};
+
 const btn = {
   padding: '6px 12px',
   border: '1px solid #ccc',
   borderRadius: 6,
-  textDecoration: 'none',
-  color: '#333',
+  background: '#fff',
+  cursor: 'pointer',
 };
 
-const activeBtn = { ...btn, background: '#000', color: '#fff' };
+const activeBtn = {
+  ...btn,
+  background: '#000',
+  color: '#fff',
+};
 
 const input = {
   padding: 8,
@@ -145,13 +182,21 @@ const searchBtn = {
   border: 'none',
   background: '#000',
   color: '#fff',
+  cursor: 'pointer',
 };
 
-const keywordBtn = {
+const chipsRow = {
+  marginTop: 8,
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap' as const,
+};
+
+const chip = {
   padding: '4px 10px',
   borderRadius: 12,
   border: '1px solid #ddd',
-  textDecoration: 'none',
-  fontSize: 13,
   background: '#fafafa',
+  cursor: 'pointer',
+  fontSize: 13,
 };
