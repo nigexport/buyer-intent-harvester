@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useState } from "react";
 
 export default function FeedUI({
   countries,
@@ -23,43 +23,45 @@ export default function FeedUI({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const updateParams = useCallback(
-    (updates: Record<string, string | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString());
+  // ✅ LOCAL STATE (THIS WAS MISSING)
+  const [q, setQ] = useState(currentQuery);
+  const [days, setDays] = useState(String(currentDays));
+  const [country, setCountry] = useState(currentCountry);
+  const [industry, setIndustry] = useState(currentIndustry);
+  const [sourceType, setSourceType] = useState(currentSourceType);
 
-      Object.entries(updates).forEach(([key, value]) => {
-        if (!value) params.delete(key);
-        else params.set(key, value);
-      });
+  function applyFilters() {
+    const params = new URLSearchParams();
 
-      router.replace(`/?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams]
-  );
+    if (q) params.set("q", q);
+    if (days) params.set("days", days);
+    if (country) params.set("country", country);
+    if (industry) params.set("industry", industry);
+    if (sourceType) params.set("source_type", sourceType);
+
+    const url = `/?${params.toString()}`;
+
+    console.log("NAVIGATING TO:", url); // 🔍 DEBUG LINE
+
+    router.replace(url, { scroll: false });
+  }
 
   return (
     <div style={{ marginBottom: 24 }}>
-      {/* Query */}
+      <h3>Filters</h3>
+
       <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
         placeholder="Search keyword"
-        defaultValue={currentQuery}
-        onBlur={(e) => updateParams({ q: e.target.value })}
       />
 
-      {/* Days */}
-      <select
-        value={currentDays}
-        onChange={(e) => updateParams({ days: e.target.value })}
-      >
+      <select value={days} onChange={(e) => setDays(e.target.value)}>
         <option value="7">Last 7 days</option>
         <option value="14">Last 14 days</option>
       </select>
 
-      {/* Country */}
-      <select
-        value={currentCountry}
-        onChange={(e) => updateParams({ country: e.target.value })}
-      >
+      <select value={country} onChange={(e) => setCountry(e.target.value)}>
         <option value="">All countries</option>
         {countries.map((c) => (
           <option key={c} value={c}>
@@ -68,25 +70,29 @@ export default function FeedUI({
         ))}
       </select>
 
-      {/* Industry */}
       <input
+        value={industry}
+        onChange={(e) => setIndustry(e.target.value)}
         placeholder="Industry"
-        defaultValue={currentIndustry}
-        onBlur={(e) => updateParams({ industry: e.target.value })}
       />
 
-      {/* Source */}
       <select
-        value={currentSourceType}
-        onChange={(e) =>
-          updateParams({ source_type: e.target.value })
-        }
+        value={sourceType}
+        onChange={(e) => setSourceType(e.target.value)}
       >
         <option value="">All sources</option>
         <option value="twitter">Twitter</option>
         <option value="reddit">Reddit</option>
         <option value="forum">Forum</option>
       </select>
+
+      {/* ✅ THIS BUTTON WAS MISSING */}
+      <div style={{ marginTop: 12 }}>
+        <button onClick={applyFilters}>
+          Apply Filters
+        </button>
+      </div>
     </div>
   );
 }
+console.log("SERVER RENDER:", new Date().toISOString());
