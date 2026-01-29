@@ -6,25 +6,11 @@ import FeedUI from '../components/FeedUI';
 
 const PAGE_SIZE = 15;
 
-type BuyerIntent = {
-  id: number;
-  source_url: string | null;
-  clean_text: string | null;
-  request_category: string | null;
-  industry: string | null;
-  country: string | null;
-  source_type: string | null;
-  created_at: string;
-};
-
-type Keyword = { keyword: string; total: number };
-
 export default async function Page({
   searchParams,
 }: {
   searchParams: {
     days?: string;
-    page?: string;
     q?: string;
     country?: string;
     industry?: string;
@@ -32,9 +18,6 @@ export default async function Page({
   };
 }) {
   const days = searchParams.days === '14' ? 14 : 7;
-  const page = Number(searchParams.page ?? '1');
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
 
   const fromDate = new Date(
     Date.now() - days * 24 * 60 * 60 * 1000
@@ -45,7 +28,7 @@ export default async function Page({
     .select('*')
     .gte('created_at', fromDate)
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .limit(PAGE_SIZE);
 
   if (searchParams.q) {
     query = query.or(
@@ -58,7 +41,6 @@ export default async function Page({
   if (searchParams.source_type) query = query.eq('source_type', searchParams.source_type);
 
   const { data } = await query;
-  const items: BuyerIntent[] = data ?? [];
 
   const { data: countryRows } = await supabase
     .from('buyer_intents')
@@ -66,15 +48,13 @@ export default async function Page({
     .not('country', 'is', null);
 
   const countries = Array.from(
-    new Set((countryRows ?? []).map(r => r.country).filter(Boolean))
-  ) as string[];
+    new Set((countryRows ?? []).map(r => r.country))
+  );
 
   const { data: keywordRows } = await supabase
     .from('popular_keywords_7d')
     .select('keyword,total')
     .order('total', { ascending: false });
-
-  const keywords: Keyword[] = keywordRows ?? [];
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
@@ -82,29 +62,26 @@ export default async function Page({
 
       <FeedUI
         countries={countries}
-        keywords={keywords}
+        keywords={keywordRows ?? []}
         currentDays={days}
-        currentPage={page}
         currentQuery={searchParams.q}
         currentCountry={searchParams.country}
         currentIndustry={searchParams.industry}
         currentSourceType={searchParams.source_type}
       />
 
-      {items.length === 0 && <p>No results found.</p>}
-
-      {items.map(item => (
-        <div key={item.id} style={{ borderBottom: '1px solid #eee', padding: '16px 0' }}>
+      {(data ?? []).map(item => (
+        <div key={item.id} style={{ padding: '16px 0', borderBottom: '1px solid #eee' }}>
           <a
             href={item.source_url ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontWeight: 600, textDecoration: 'none', color: '#000' }}
+            style={{ fontWeight: 600, color: '#000', textDecoration: 'none' }}
           >
             {(item.request_category || 'Buyer Request').replace(/^=+/, '')}
           </a>
 
-          {item.clean_text && <p>{item.clean_text.replace(/^=+/, '')}</p>}
+          <p>{item.clean_text?.replace(/^=+/, '')}</p>
 
           <small style={{ color: '#666' }}>
             {item.country || 'Unknown'} ·{' '}
