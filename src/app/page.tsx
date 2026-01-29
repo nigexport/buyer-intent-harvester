@@ -1,198 +1,67 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import FeedUI from "../components/FeedUI";
 import { getSupabase } from "../lib/supabase";
-
-const PAGE_SIZE = 15;
 
 export default async function Page({
   searchParams,
 }: {
   searchParams: {
-    days?: string;
     q?: string;
     country?: string;
-    industry?: string;
     source_type?: string;
   };
 }) {
   const supabase = getSupabase();
 
-  const days = searchParams.days === "14" ? 14 : 7;
-
-  const fromDate = new Date(
-    Date.now() - days * 24 * 60 * 60 * 1000
-  ).toISOString();
-
   let query = supabase
     .from("buyer_intents")
-    .select("*")
-    .gte("created_at", fromDate)
-    .order("created_at", { ascending: false })
-  //.limit(PAGE_SIZE);
+    .select("id, country, source_type, clean_text")
+    .order("created_at", { ascending: false });
+
+  // 🔴 APPLY ONLY ONE FILTER AT A TIME
+  if (searchParams.country) {
+    query = query.ilike("country::text", `%${searchParams.country}%`);
+  }
+
+  if (searchParams.source_type) {
+    query = query.ilike("source_type::text", `%${searchParams.source_type}%`);
+  }
 
   if (searchParams.q) {
-    query = query.or(
-      `clean_text.ilike.%${searchParams.q}%,request_category.ilike.%${searchParams.q}%`
-    );
-  }
-
-  /**
-   * 🔥 COUNTRY (handles string OR json)
-   */
-  if (searchParams.country) {
-    query = query.ilike(
-      "country::text",
-      `%${searchParams.country}%`
-    );
-  }
-
-  /**
-   * 🔥 INDUSTRY (case-insensitive)
-   */
-  if (searchParams.industry) {
-    query = query.ilike("industry", `%${searchParams.industry}%`);
-  }
-
-  /**
-   * 🔥 SOURCE TYPE (defensive)
-   */
-  if (searchParams.source_type) {
-    query = query.ilike(
-      "source_type::text",
-      `%${searchParams.source_type}%`
-    );
+    query = query.ilike("clean_text", `%${searchParams.q}%`);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    return (
-      <main style={{ padding: 40 }}>
-        <h1>Error loading feed</h1>
-        <pre>{error.message}</pre>
-      </main>
-    );
+    return <pre>ERROR: {error.message}</pre>;
   }
 
-  const { data: countryRows } = await supabase
-    .from("buyer_intents")
-    .select("country")
-    .not("country", "is", null);
-
-  const countries = Array.from(
-    new Set(
-      (countryRows ?? [])
-        .map((r) =>
-          typeof r.country === "string"
-            ? r.country
-            : r.country?.country
-        )
-        .filter(Boolean)
-    )
-  );
-
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1>Buyer Intent Feed</h1>
+    <main style={{ padding: 40 }}>
+      <h1>🔍 Supabase Filter Diagnostic</h1>
 
-      {/* 🔴 PROOF: server is re-running */}
       <p style={{ color: "red", fontWeight: 700 }}>
         SERVER RENDER: {new Date().toISOString()}
       </p>
 
-      {/* 🔴 PROOF: params are changing */}
-      <pre style={{ background: "#f5f5f5", padding: 8 }}>
-        searchParams = {JSON.stringify(searchParams, null, 2)}
+      <h3>searchParams</h3>
+      <pre>{JSON.stringify(searchParams, null, 2)}</pre>
+
+      <h3>Returned rows: {data?.length ?? 0}</h3>
+
+      <h3>Returned IDs</h3>
+      <pre>
+        {JSON.stringify(
+          (data ?? []).map((r) => r.id),
+          null,
+          2
+        )}
       </pre>
 
-      <FeedUI
-        countries={countries}
-        currentDays={days}
-        currentQuery={searchParams.q ?? ""}
-        currentCountry={searchParams.country ?? ""}
-        currentIndustry={searchParams.industry ?? ""}
-        currentSourceType={searchParams.source_type ?? ""}
-      />
-
-      {/* 🔴 PROOF: result count */}
-      <p style={{ fontWeight: 600 }}>
-        Showing {(data ?? []).length} results
-      </p>
-
-      {/* 🔥 FORCE LIST REBUILD WHEN FILTERS CHANGE */}
-      <div
-        key={JSON.stringify(searchParams)}
-      >
-        {(data ?? []).map((item) => (
-          <div
-            key={item.id}
-            style={{
-              padding: "16px 0",
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <strong>
-              {(item.request_category || "Buyer Request").replace(/^=+/, "")}
-            </strong>
-
-            <p>{item.clean_text?.replace(/^=+/, "")}</p>
-
-            <small style={{ color: "#666" }}>
-              {item.country || "Unknown"} ·{" "}
-              {new Date(item.created_at).toLocaleDateString()}
-            </small>
-          </div>
-        ))}
-      </div>
-    </main>
-  );
-
-
-  return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1>Buyer Intent Feed</h1>
-
-      {/* 🔴 PROOF THE SERVER IS RE-RUNNING */}
-      <p style={{ color: "red", fontWeight: 700 }}>
-        SERVER RENDER: {new Date().toISOString()}
-      </p>
-
-      <pre style={{ background: "#f5f5f5", padding: 8 }}>
-        searchParams = {JSON.stringify(searchParams, null, 2)}
-      </pre>
-
-      <FeedUI
-        countries={countries}
-        currentDays={days}
-        currentQuery={searchParams.q ?? ""}
-        currentCountry={searchParams.country ?? ""}
-        currentIndustry={searchParams.industry ?? ""}
-        currentSourceType={searchParams.source_type ?? ""}
-      />
-
-      <p style={{ marginTop: 12 }}>
-        Showing {(data ?? []).length} results
-      </p>
-
-      {(data ?? []).map((item) => (
-        <div
-          key={item.id}
-          style={{ padding: "16px 0", borderBottom: "1px solid #eee" }}
-        >
-          <strong>
-            {(item.request_category || "Buyer Request").replace(/^=+/, "")}
-          </strong>
-
-          <p>{item.clean_text?.replace(/^=+/, "")}</p>
-
-          <small style={{ color: "#666" }}>
-            {item.country || "Unknown"} ·{" "}
-            {new Date(item.created_at).toLocaleDateString()}
-          </small>
-        </div>
-      ))}
+      <h3>Sample rows</h3>
+      <pre>{JSON.stringify(data?.slice(0, 5), null, 2)}</pre>
     </main>
   );
 }
