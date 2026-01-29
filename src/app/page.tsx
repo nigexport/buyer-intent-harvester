@@ -30,7 +30,7 @@ export default async function Page({
     .select("*")
     .gte("created_at", fromDate)
     .order("created_at", { ascending: false })
-    .limit(PAGE_SIZE);
+  //.limit(PAGE_SIZE);
 
   if (searchParams.q) {
     query = query.or(
@@ -92,6 +92,63 @@ export default async function Page({
         .filter(Boolean)
     )
   );
+
+  return (
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <h1>Buyer Intent Feed</h1>
+
+      {/* 🔴 PROOF: server is re-running */}
+      <p style={{ color: "red", fontWeight: 700 }}>
+        SERVER RENDER: {new Date().toISOString()}
+      </p>
+
+      {/* 🔴 PROOF: params are changing */}
+      <pre style={{ background: "#f5f5f5", padding: 8 }}>
+        searchParams = {JSON.stringify(searchParams, null, 2)}
+      </pre>
+
+      <FeedUI
+        countries={countries}
+        currentDays={days}
+        currentQuery={searchParams.q ?? ""}
+        currentCountry={searchParams.country ?? ""}
+        currentIndustry={searchParams.industry ?? ""}
+        currentSourceType={searchParams.source_type ?? ""}
+      />
+
+      {/* 🔴 PROOF: result count */}
+      <p style={{ fontWeight: 600 }}>
+        Showing {(data ?? []).length} results
+      </p>
+
+      {/* 🔥 FORCE LIST REBUILD WHEN FILTERS CHANGE */}
+      <div
+        key={JSON.stringify(searchParams)}
+      >
+        {(data ?? []).map((item) => (
+          <div
+            key={item.id}
+            style={{
+              padding: "16px 0",
+              borderBottom: "1px solid #eee",
+            }}
+          >
+            <strong>
+              {(item.request_category || "Buyer Request").replace(/^=+/, "")}
+            </strong>
+
+            <p>{item.clean_text?.replace(/^=+/, "")}</p>
+
+            <small style={{ color: "#666" }}>
+              {item.country || "Unknown"} ·{" "}
+              {new Date(item.created_at).toLocaleDateString()}
+            </small>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+
 
   return (
     <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
