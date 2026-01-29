@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function FeedUI({
   countries,
-  keywords,
   currentDays,
   currentQuery,
   currentCountry,
@@ -13,7 +12,6 @@ export default function FeedUI({
   currentSourceType,
 }: {
   countries: string[];
-  keywords: { keyword: string; total: number }[];
   currentDays: number;
   currentQuery: string;
   currentCountry: string;
@@ -21,9 +19,7 @@ export default function FeedUI({
   currentSourceType: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // ✅ LOCAL STATE (THIS WAS MISSING)
   const [q, setQ] = useState(currentQuery);
   const [days, setDays] = useState(String(currentDays));
   const [country, setCountry] = useState(currentCountry);
@@ -34,72 +30,95 @@ export default function FeedUI({
     const params = new URLSearchParams();
 
     if (q) params.set("q", q);
-    if (days) params.set("days", days);
+    params.set("days", days);
     if (country) params.set("country", country);
     if (industry) params.set("industry", industry);
     if (sourceType) params.set("source_type", sourceType);
 
     const url = `/?${params.toString()}`;
-
-    const currentUrl =
-      window.location.pathname + window.location.search;
-
-    if (url === currentUrl) {
-      console.log("URL unchanged — forcing refresh");
-      router.refresh(); // 🔥 THIS IS THE KEY
-      return;
-    }
-
     router.replace(url, { scroll: false });
+    router.refresh(); // 🔥 always force refresh
   }
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      <h3>Filters</h3>
+    <div
+      style={{
+        marginBottom: 32,
+        padding: 16,
+        border: "2px solid #ddd",
+        borderRadius: 8,
+        background: "#fafafa",
+      }}
+    >
+      <h3 style={{ marginBottom: 12 }}>Search Filters</h3>
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search keyword"
-      />
+      <div style={{ display: "grid", gap: 12 }}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search keyword"
+          style={{ padding: 10, fontSize: 14 }}
+        />
 
-      <select value={days} onChange={(e) => setDays(e.target.value)}>
-        <option value="7">Last 7 days</option>
-        <option value="14">Last 14 days</option>
-      </select>
+        <select
+          value={days}
+          onChange={(e) => setDays(e.target.value)}
+          style={{ padding: 10 }}
+        >
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+        </select>
 
-      <select value={country} onChange={(e) => setCountry(e.target.value)}>
-        <option value="">All countries</option>
-        {countries.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
+        <select
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          style={{ padding: 10 }}
+        >
+          <option value="">All countries</option>
+          {countries.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
 
-      <input
-        value={industry}
-        onChange={(e) => setIndustry(e.target.value)}
-        placeholder="Industry"
-      />
+        <input
+          value={industry}
+          onChange={(e) => setIndustry(e.target.value)}
+          placeholder="Industry"
+          style={{ padding: 10 }}
+        />
 
-      <select
-        value={sourceType}
-        onChange={(e) => setSourceType(e.target.value)}
-      >
-        <option value="">All sources</option>
-        <option value="twitter">Twitter</option>
-        <option value="reddit">Reddit</option>
-        <option value="forum">Forum</option>
-      </select>
+        <select
+          value={sourceType}
+          onChange={(e) => setSourceType(e.target.value)}
+          style={{ padding: 10 }}
+        >
+          <option value="">All sources</option>
+          <option value="twitter">Twitter</option>
+          <option value="reddit">Reddit</option>
+          <option value="forum">Forum</option>
+        </select>
 
-      {/* ✅ THIS BUTTON WAS MISSING */}
-      <div style={{ marginTop: 12 }}>
-        <button onClick={applyFilters}>
-          Apply Filters
+        {/* 🔥 IMPOSSIBLE-TO-MISS BUTTON */}
+        <button
+          onClick={applyFilters}
+          style={{
+            marginTop: 8,
+            padding: "14px 18px",
+            fontSize: 16,
+            fontWeight: 700,
+            background: "#000",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            pointerEvents: "auto",
+          }}
+        >
+          🔍 Apply Search Filters
         </button>
       </div>
     </div>
   );
 }
-console.log("SERVER RENDER:", new Date().toISOString());

@@ -76,8 +76,7 @@ export default async function Page({
       <h1>Buyer Intent Feed</h1>
 
       <FeedUI
-        countries={countries}
-        keywords={keywordRows ?? []}
+        countries={countries}        
         currentDays={days}
         currentQuery={searchParams.q ?? ""}
         currentCountry={searchParams.country ?? ""}
