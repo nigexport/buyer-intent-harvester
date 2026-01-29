@@ -36,8 +36,11 @@ export default function FeedUI({
     if (sourceType) params.set("source_type", sourceType);
 
     const url = `/?${params.toString()}`;
+
+    console.log("NAVIGATING TO:", url);
+
     router.replace(url, { scroll: false });
-    router.refresh(); // 🔥 always force refresh
+    router.refresh(); // 🔥 FORCE SERVER RE-RENDER
   }
 
   return (
@@ -50,30 +53,22 @@ export default function FeedUI({
         background: "#fafafa",
       }}
     >
-      <h3 style={{ marginBottom: 12 }}>Search Filters</h3>
+      <h3>Search Filters</h3>
 
       <div style={{ display: "grid", gap: 12 }}>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search keyword"
-          style={{ padding: 10, fontSize: 14 }}
+          style={{ padding: 10 }}
         />
 
-        <select
-          value={days}
-          onChange={(e) => setDays(e.target.value)}
-          style={{ padding: 10 }}
-        >
+        <select value={days} onChange={(e) => setDays(e.target.value)}>
           <option value="7">Last 7 days</option>
           <option value="14">Last 14 days</option>
         </select>
 
-        <select
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          style={{ padding: 10 }}
-        >
+        <select value={country} onChange={(e) => setCountry(e.target.value)}>
           <option value="">All countries</option>
           {countries.map((c) => (
             <option key={c} value={c}>
@@ -92,7 +87,6 @@ export default function FeedUI({
         <select
           value={sourceType}
           onChange={(e) => setSourceType(e.target.value)}
-          style={{ padding: 10 }}
         >
           <option value="">All sources</option>
           <option value="twitter">Twitter</option>
@@ -100,7 +94,6 @@ export default function FeedUI({
           <option value="forum">Forum</option>
         </select>
 
-        {/* 🔥 IMPOSSIBLE-TO-MISS BUTTON */}
         <button
           onClick={applyFilters}
           style={{
@@ -113,7 +106,6 @@ export default function FeedUI({
             border: "none",
             borderRadius: 6,
             cursor: "pointer",
-            pointerEvents: "auto",
           }}
         >
           🔍 Apply Search Filters

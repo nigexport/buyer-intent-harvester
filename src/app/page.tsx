@@ -74,6 +74,15 @@ export default async function Page({
     <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
       <h1>Buyer Intent Feed</h1>
 
+      {/* 🔴 PROOF THE SERVER IS RE-RUNNING */}
+      <p style={{ color: "red", fontWeight: 700 }}>
+        SERVER RENDER: {new Date().toISOString()}
+      </p>
+
+      <pre style={{ background: "#f5f5f5", padding: 8 }}>
+        searchParams = {JSON.stringify(searchParams, null, 2)}
+      </pre>
+
       <FeedUI
         countries={countries}
         currentDays={days}
@@ -82,6 +91,10 @@ export default async function Page({
         currentIndustry={searchParams.industry ?? ""}
         currentSourceType={searchParams.source_type ?? ""}
       />
+
+      <p style={{ marginTop: 12 }}>
+        Showing {(data ?? []).length} results
+      </p>
 
       {(data ?? []).map((item) => (
         <div
