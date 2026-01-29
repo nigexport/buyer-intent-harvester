@@ -34,6 +34,11 @@ export default function FeedUI({
     if (country) params.set("country", country);
     if (industry) params.set("industry", industry);
     if (sourceType) params.set("source_type", sourceType);
+    
+    if (country && typeof country !== "string") {
+      console.warn("Invalid country value:", country);
+      return;
+    }
 
     const url = `/?${params.toString()}`;
 

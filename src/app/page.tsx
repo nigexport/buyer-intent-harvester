@@ -67,7 +67,15 @@ export default async function Page({
     .not("country", "is", null);
 
   const countries = Array.from(
-    new Set((countryRows ?? []).map((r) => r.country))
+    new Set(
+      (countryRows ?? [])
+        .map((r) =>
+          typeof r.country === "string"
+            ? r.country
+            : r.country?.country
+        )
+        .filter(Boolean)
+    )
   );
 
   return (
