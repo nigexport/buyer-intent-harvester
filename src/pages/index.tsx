@@ -130,10 +130,10 @@ export async function getServerSideProps({ query }: any) {
     .gte("created_at", fromDate);
 
   if (q) {
+    const safeQ = q.replace(/%/g, "").replace(/,/g, "");
+
     baseQuery = baseQuery.or(
-      `clean_text.ilike.%${q}%,
-      intent_summary.ilike.%${q}%,
-      request_category.ilike.%${q}%`
+      `clean_text.ilike.%${safeQ}%,intent_summary.ilike.%${safeQ}%,request_category.ilike.%${safeQ}%`
     );
   }
 
