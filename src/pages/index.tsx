@@ -1,92 +1,177 @@
+import Head from "next/head";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
 
-type PageProps = {
-  results: any[];
-  countries: string[];
-  q?: string;
-  country?: string;
-  days: number;
-};
+const PAGE_SIZE = 15;
 
-export default function Home({
-  results,
-  countries,
-  q,
-  country,
-  days,
-}: PageProps) {
+export default function Home(props: any) {
+  const {
+    results,
+    countries,
+    industries,
+    sources,
+    popularKeywords,
+    q,
+    country,
+    industry,
+    source,
+    days,
+    page,
+    totalPages,
+  } = props;
+
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
-      <h1>Buyer Intent Feed</h1>
+    <>
+      <Head>
+        <title>Buyer Intent</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-      <FeedUI
-        countries={countries}
-        currentQuery={q}
-        currentCountry={country}
-        currentDays={days}
-      />
+      <main className="container">
+        {/* LOGO / HOME */}
+        <Link href="/" className="logo">
+          <img src="/logo.svg" alt="Buyer Intent" />
+        </Link>
 
-      {results.length === 0 && <p>No results found.</p>}
+        <FeedUI
+          countries={countries}
+          industries={industries}
+          sources={sources}
+          popularKeywords={popularKeywords}
+          currentQuery={q}
+          currentCountry={country}
+          currentIndustry={industry}
+          currentSource={source}
+          currentDays={days}
+        />
 
-      {results.map((item) => (
-        <div key={item.id} style={{ padding: "16px 0", borderBottom: "1px solid #eee" }}>
-          <strong>{item.request_category || "Buyer Intent"}</strong>
-          <p>{item.clean_text}</p>
-          <small>
-            {item.country || "Unknown"} ·{" "}
-            {new Date(item.created_at).toLocaleDateString()}
-          </small>
+        {/* RESULTS */}
+        {results.length === 0 && <p>No results found.</p>}
+
+        {results.map((item: any) => (
+          <div key={item.id} className="card">
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="title"
+            >
+              {item.request_category || "Buyer Intent"}
+            </a>
+            <p>{item.clean_text}</p>
+            <small>
+              {item.country || "Unknown"} ·{" "}
+              {new Date(item.created_at).toLocaleDateString()}
+            </small>
+          </div>
+        ))}
+
+        {/* PAGINATION */}
+        <div className="pagination">
+          {page > 1 && (
+            <Link href={`/?${new URLSearchParams({ ...props, page: page - 1 })}`}>
+              ← Prev
+            </Link>
+          )}
+          {page < totalPages && (
+            <Link href={`/?${new URLSearchParams({ ...props, page: page + 1 })}`}>
+              Next →
+            </Link>
+          )}
         </div>
-      ))}
-    </main>
+      </main>
+
+      {/* MOBILE-FIRST STYLES */}
+      <style jsx>{`
+        .container {
+          max-width: 900px;
+          margin: auto;
+          padding: 16px;
+        }
+        .logo img {
+          height: 40px;
+          cursor: pointer;
+        }
+        .card {
+          border-bottom: 1px solid #eee;
+          padding: 16px 0;
+        }
+        .title {
+          font-weight: 600;
+          color: #000;
+          text-decoration: none;
+        }
+        .pagination {
+          display: flex;
+          justify-content: space-between;
+          margin: 24px 0;
+        }
+      `}</style>
+    </>
   );
 }
 
 export async function getServerSideProps({ query }: any) {
   const q = query.q ?? "";
   const country = query.country ?? "";
+  const industry = query.industry ?? "";
+  const source = query.source ?? "";
   const days = Number(query.days) || 7;
+  const page = Number(query.page) || 1;
 
   const fromDate = new Date(
     Date.now() - days * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  let dbQuery = supabase
+  let baseQuery = supabase
     .from("buyer_intents")
-    .select("*")
-    .gte("created_at", fromDate)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .select("*", { count: "exact" })
+    .gte("created_at", fromDate);
 
-  if (q) {
-    dbQuery = dbQuery.or(
+  if (q)
+    baseQuery = baseQuery.or(
       `clean_text.ilike.%${q}%,intent_summary.ilike.%${q}%`
     );
-  }
+  if (country) baseQuery = baseQuery.eq("country", country);
+  if (industry) baseQuery = baseQuery.eq("industry", industry);
+  if (source) baseQuery = baseQuery.eq("source_type", source);
 
-  if (country) {
-    dbQuery = dbQuery.eq("country", country);
-  }
+  const { data, count } = await baseQuery
+    .order("created_at", { ascending: false })
+    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
-  const { data } = await dbQuery;
+  const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
-  const { data: countryRows } = await supabase
-    .from("buyer_intents")
-    .select("country")
-    .not("country", "is", null);
-
-  const countries = Array.from(
-    new Set((countryRows ?? []).map((r) => r.country))
-  ).sort();
+  // CLEAN FILTER DATA (NO JUNK)
+  const getDistinct = async (field: string) => {
+    const { data } = await supabase
+      .from("buyer_intents")
+      .select(field)
+      .not(field, "is", null);
+    return [...new Set(data?.map((r: any) => r[field]))].sort();
+  };
 
   return {
     props: {
       results: data ?? [],
-      countries,
       q,
       country,
+      industry,
+      source,
       days,
+      page,
+      totalPages,
+      countries: await getDistinct("country"),
+      industries: await getDistinct("industry"),
+      sources: await getDistinct("source_type"),
+      popularKeywords: (
+        await supabase
+          .from("popular_keywords_7d")
+          .select("keyword")
+          .order("total", { ascending: false })
+          .limit(10)
+      ).data?.map((k: any) => k.keyword) ?? [],
     },
   };
 }
