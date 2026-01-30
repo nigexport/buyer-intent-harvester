@@ -25,13 +25,17 @@ export default function FeedUI({
 
   const [q, setQ] = useState(currentQuery ?? "");
 
-  function updateParam(key: string, value?: string | number) {
+  function navigate(key: string, value?: string | number) {
     const params = new URLSearchParams(searchParams.toString());
 
-    if (!value) params.delete(key);
-    else params.set(key, String(value));
+    if (!value) {
+      params.delete(key);
+    } else {
+      params.set(key, String(value));
+    }
 
-    router.push(`/?${params.toString()}`);
+    // 🔥 THIS forces a real navigation
+    router.replace(`/?${params.toString()}`, { scroll: false });
   }
 
   return (
@@ -39,21 +43,20 @@ export default function FeedUI({
       {/* SEARCH */}
       <input
         value={q}
-        placeholder="Search buyer intent..."
+        placeholder="Search buyer intent…"
         onChange={(e) => setQ(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") updateParam("q", q);
-        }}
       />
-      <button onClick={() => updateParam("q", q)}>Search</button>
+      <button onClick={() => navigate("q", q)}>Search</button>
 
       {/* DAYS */}
       <div>
         {[7, 14, 30].map((d) => (
           <button
             key={d}
-            style={{ fontWeight: currentDays === d ? "bold" : "normal" }}
-            onClick={() => updateParam("days", d)}
+            style={{
+              fontWeight: currentDays === d ? "bold" : "normal",
+            }}
+            onClick={() => navigate("days", d)}
           >
             {d} days
           </button>
@@ -63,7 +66,7 @@ export default function FeedUI({
       {/* COUNTRY */}
       <select
         value={currentCountry ?? ""}
-        onChange={(e) => updateParam("country", e.target.value)}
+        onChange={(e) => navigate("country", e.target.value)}
       >
         <option value="">All countries</option>
         {countries.map((c) => (
