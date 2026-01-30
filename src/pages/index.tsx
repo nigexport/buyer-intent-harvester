@@ -129,10 +129,11 @@ export async function getServerSideProps({ query }: any) {
     .select("*", { count: "exact" })
     .gte("created_at", fromDate);
 
-  if (q)
+  if (q) {
     baseQuery = baseQuery.or(
-      `clean_text.ilike.%${q}%,intent_summary.ilike.%${q}%`
+      `clean_text.ilike.%${q}%,intent_summary.ilike.%${q}%,request_category.ilike.%${q}%`
     );
+  }
   if (country) baseQuery = baseQuery.eq("country", country);
   if (industry) baseQuery = baseQuery.eq("industry", industry);
   if (source) baseQuery = baseQuery.eq("source_type", source);
@@ -151,6 +152,14 @@ export async function getServerSideProps({ query }: any) {
       .not(field, "is", null);
     return [...new Set(data?.map((r: any) => r[field]))].sort();
   };
+
+  const VALID_SOURCES = ["twitter", "linkedin", "web", "tenders", "rss"];
+
+  const rawSources = await getDistinct("source_type");
+
+  const sources = rawSources.filter((s: string) =>
+    VALID_SOURCES.includes(s.toLowerCase())
+  );
 
   return {
     props: {
