@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { useState } from "react";
 
 type FeedUIProps = {
   countries: string[];
@@ -26,6 +27,9 @@ export default function FeedUI({
 }: FeedUIProps) {
   const router = useRouter();
 
+  // ✅ controlled search input
+  const [q, setQ] = useState(currentQuery ?? "");
+
   function nav(params: Record<string, string | number | undefined>) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -34,9 +38,14 @@ export default function FeedUI({
       query: {
         ...router.query,
         ...params,
-        page: 1, // reset pagination on any filter change
+        page: 1, // reset pagination
       },
     });
+  }
+
+  function clearFilters() {
+    setQ("");
+    router.push({ pathname: "/" });
   }
 
   return (
@@ -44,24 +53,15 @@ export default function FeedUI({
       {/* SEARCH */}
       <div className="search-row">
         <input
-          id="searchInput"
           type="text"
           placeholder="Search buyer intent…"
-          defaultValue={currentQuery ?? ""}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              nav({ q: (e.target as HTMLInputElement).value });
-            }
-          }}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && nav({ q })}
         />
-        <button
-          onClick={() => {
-            const input =
-              document.getElementById("searchInput") as HTMLInputElement | null;
-            nav({ q: input?.value });
-          }}
-        >
-          Search
+        <button onClick={() => nav({ q })}>Search</button>
+        <button className="clear" onClick={clearFilters}>
+          Clear
         </button>
       </div>
 
@@ -120,7 +120,13 @@ export default function FeedUI({
       {/* POPULAR KEYWORDS */}
       <div className="chips">
         {popularKeywords.map((k) => (
-          <button key={k} onClick={() => nav({ q: k })}>
+          <button
+            key={k}
+            onClick={() => {
+              setQ(k);        // ✅ sync input
+              nav({ q: k });  // ✅ guaranteed value
+            }}
+          >
             {k}
           </button>
         ))}
@@ -132,6 +138,7 @@ export default function FeedUI({
           display: flex;
           gap: 8px;
           margin-bottom: 12px;
+          flex-wrap: wrap;
         }
         .search-row input {
           flex: 1;
@@ -145,6 +152,10 @@ export default function FeedUI({
           color: #fff;
           border-radius: 6px;
           cursor: pointer;
+        }
+        .search-row button.clear {
+          background: #eee;
+          color: #000;
         }
         .chips {
           display: flex;

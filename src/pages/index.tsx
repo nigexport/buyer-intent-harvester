@@ -131,9 +131,12 @@ export async function getServerSideProps({ query }: any) {
 
   if (q) {
     baseQuery = baseQuery.or(
-      `clean_text.ilike.%${q}%,intent_summary.ilike.%${q}%,request_category.ilike.%${q}%`
+      `clean_text.ilike.%${q}%,
+      intent_summary.ilike.%${q}%,
+      request_category.ilike.%${q}%`
     );
   }
+
   if (country) baseQuery = baseQuery.eq("country", country);
   if (industry) baseQuery = baseQuery.eq("industry", industry);
   if (source) baseQuery = baseQuery.eq("source_type", source);
