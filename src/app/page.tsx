@@ -1,64 +1,88 @@
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
 
+const PAGE_SIZE = 15;
 
-interface PageProps {
+export default async function Page({
+  searchParams,
+}: {
   searchParams: {
     q?: string;
     industry?: string;
     days?: string;
     country?: string;
+    source_type?: string;
   };
-}
+}) {
+  const days = searchParams.days === "14" ? 14 : searchParams.days === "30" ? 30 : 7;
 
-export default async function Page({ searchParams }: PageProps) {
-  const q = searchParams.q ?? "";
-  const industry = searchParams.industry ?? "";
-  const days = Number(searchParams.days ?? 7);
-  const country = searchParams.country ?? "";
+  const fromDate = new Date(
+    Date.now() - days * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   let query = supabase
-    .from("intent_feed")
+    .from("buyer_intents")
     .select("*")
-    .order("created_at", { ascending: false });
+    .gte("created_at", fromDate)
+    .order("created_at", { ascending: false })
+    .limit(PAGE_SIZE);
 
-  // 🔍 text search
-  if (q) {
-    query = query.ilike("clean_text", `%${q}%`);
+  if (searchParams.q) {
+    query = query.or(
+      `clean_text.ilike.%${searchParams.q}%,intent_summary.ilike.%${searchParams.q}%`
+    );
   }
 
-  // 🏭 industry filter
-  if (industry) {
-    query = query.eq("industry", industry);
+  if (searchParams.country) {
+    query = query.eq("country", searchParams.country);
   }
 
-  // 🌍 country filter
-  if (country) {
-    query = query.eq("country", country);
+  if (searchParams.industry) {
+    query = query.eq("industry", searchParams.industry);
   }
 
-  // 📅 time filter
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  query = query.gte("created_at", since.toISOString());
-
-  const { data, error } = await query.limit(50);
-
-  if (error) {
-    console.error(error);
+  if (searchParams.source_type) {
+    query = query.eq("source_type", searchParams.source_type);
   }
+
+  const { data } = await query;
+
+  // ✅ countries list
+  const { data: countryRows } = await supabase
+    .from("buyer_intents")
+    .select("country")
+    .not("country", "is", null);
+
+  const countries = Array.from(
+    new Set((countryRows ?? []).map((r) => r.country))
+  ).sort();
 
   return (
-    <main className="max-w-5xl mx-auto p-6">
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <h1>Buyer Intent Feed</h1>
+
       <FeedUI
-        results={data ?? []}
-        initialQuery={q}
-        initialIndustry={industry}
-        initialDays={days}
-        initialCountry={country}
+        countries={countries}
+        currentDays={days}
+        currentQuery={searchParams.q}
+        currentCountry={searchParams.country}
+        currentIndustry={searchParams.industry}
+        currentSourceType={searchParams.source_type}
       />
+
+      {(data ?? []).map((item) => (
+        <div key={item.id} style={{ padding: "16px 0", borderBottom: "1px solid #eee" }}>
+          <strong>{item.request_category || "Buyer Intent"}</strong>
+          <p>{item.clean_text}</p>
+          <small>
+            {item.country ?? "Unknown"} ·{" "}
+            {new Date(item.created_at).toLocaleDateString()}
+          </small>
+        </div>
+      ))}
     </main>
   );
 }
