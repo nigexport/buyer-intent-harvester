@@ -1,120 +1,110 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-export default function FeedUI({
-  countries,
-  currentDays,
-  currentQuery,
-  currentCountry,
-  currentIndustry,
-  currentSourceType,
-}: {
+type Props = {
   countries: string[];
+  keywords: { keyword: string; total: number }[];
   currentDays: number;
   currentQuery: string;
   currentCountry: string;
   currentIndustry: string;
   currentSourceType: string;
-}) {
+};
+
+export default function FeedUI({
+  countries,
+  keywords,
+  currentDays,
+  currentQuery,
+  currentCountry,
+  currentIndustry,
+  currentSourceType,
+}: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [q, setQ] = useState(currentQuery);
-  const [days, setDays] = useState(String(currentDays));
-  const [country, setCountry] = useState(currentCountry);
-  const [industry, setIndustry] = useState(currentIndustry);
-  const [sourceType, setSourceType] = useState(currentSourceType);
 
-  function applyFilters() {
-    const params = new URLSearchParams();
+  function updateParam(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
 
-    if (q) params.set("q", q);
-    params.set("days", days);
-    if (country) params.set("country", country);
-    if (industry) params.set("industry", industry);
-    if (sourceType) params.set("source_type", sourceType);
-    
-    if (country && typeof country !== "string") {
-      console.warn("Invalid country value:", country);
-      return;
-    }
+    if (!value) params.delete(key);
+    else params.set(key, value);
 
-    const url = `/?${params.toString()}`;
-
-    console.log("NAVIGATING TO:", url);
-
-    router.replace(url, { scroll: false });
-    router.refresh(); // 🔥 FORCE SERVER RE-RENDER
+    router.push(`/?${params.toString()}`);
   }
 
   return (
-    <div
-      style={{
-        marginBottom: 32,
-        padding: 16,
-        border: "2px solid #ddd",
-        borderRadius: 8,
-        background: "#fafafa",
-      }}
-    >
-      <h3>Search Filters</h3>
+    <div style={{ marginBottom: 24 }}>
+      {/* SEARCH */}
+      <input
+        placeholder="Search buyer intent…"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && updateParam("q", q)}
+        style={{ width: "100%", padding: 8 }}
+      />
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search keyword"
-          style={{ padding: 10 }}
-        />
+      {/* 7 / 14 DAY TOGGLE */}
+      <div style={{ marginTop: 12 }}>
+        <button
+          onClick={() => updateParam("days", "7")}
+          disabled={currentDays === 7}
+        >
+          Last 7 days
+        </button>
+        <button
+          onClick={() => updateParam("days", "14")}
+          disabled={currentDays === 14}
+          style={{ marginLeft: 8 }}
+        >
+          Last 14 days
+        </button>
+      </div>
 
-        <select value={days} onChange={(e) => setDays(e.target.value)}>
-          <option value="7">Last 7 days</option>
-          <option value="14">Last 14 days</option>
-        </select>
-
-        <select value={country} onChange={(e) => setCountry(e.target.value)}>
+      {/* FILTERS */}
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <select
+          value={currentCountry}
+          onChange={e => updateParam("country", e.target.value)}
+        >
           <option value="">All countries</option>
-          {countries.map((c) => (
+          {countries.map(c => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
         </select>
 
-        <input
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          placeholder="Industry"
-          style={{ padding: 10 }}
-        />
-
         <select
-          value={sourceType}
-          onChange={(e) => setSourceType(e.target.value)}
+          value={currentIndustry}
+          onChange={e => updateParam("industry", e.target.value)}
         >
-          <option value="">All sources</option>
-          <option value="twitter">Twitter</option>
-          <option value="reddit">Reddit</option>
-          <option value="forum">Forum</option>
+          <option value="">All industries</option>
+          <option value="Procurement">Procurement</option>
+          <option value="Construction">Construction</option>
+          <option value="Manufacturing">Manufacturing</option>
+          <option value="Oil & Gas">Oil & Gas</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Other">Other</option>
         </select>
+      </div>
 
-        <button
-          onClick={applyFilters}
-          style={{
-            marginTop: 8,
-            padding: "14px 18px",
-            fontSize: 16,
-            fontWeight: 700,
-            background: "#000",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-          }}
-        >
-          🔍 Apply Search Filters
-        </button>
+      {/* POPULAR SEARCHES */}
+      <div style={{ marginTop: 12 }}>
+        <strong>Popular searches:</strong>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {keywords.map(k => (
+            <button
+              key={k.keyword}
+              onClick={() => updateParam("q", k.keyword)}
+            >
+              {k.keyword}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

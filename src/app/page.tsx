@@ -1,67 +1,107 @@
+// app/page.tsx
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import { getSupabase } from "../lib/supabase";
+import FeedUI from '../components/FeedUI';
+import { getSupabase } from '../lib/supabase';
+
+const PAGE_SIZE = 15;
 
 export default async function Page({
   searchParams,
 }: {
   searchParams: {
     q?: string;
+    days?: string;
     country?: string;
+    industry?: string;
     source_type?: string;
   };
 }) {
   const supabase = getSupabase();
 
+  const days = searchParams.days === "14" ? 14 : 7;
+  const fromDate = new Date(
+    Date.now() - days * 24 * 60 * 60 * 1000
+  ).toISOString();
+
   let query = supabase
     .from("buyer_intents")
-    .select("id, country, source_type, clean_text")
-    .order("created_at", { ascending: false });
+    .select("*")
+    .gte("created_at", fromDate)
+    .order("created_at", { ascending: false })
+    .limit(PAGE_SIZE);
 
-  // 🔴 APPLY ONLY ONE FILTER AT A TIME
+  if (searchParams.q) {
+    query = query.or(
+      `clean_text.ilike.%${searchParams.q}%,intent_summary.ilike.%${searchParams.q}%`
+    );
+  }
+
   if (searchParams.country) {
-    query = query.ilike("country::text", `%${searchParams.country}%`);
+    query = query.eq("country", searchParams.country);
+  }
+
+  if (searchParams.industry) {
+    query = query.eq("industry", searchParams.industry);
   }
 
   if (searchParams.source_type) {
-    query = query.ilike("source_type::text", `%${searchParams.source_type}%`);
+    query = query.eq("source_type", searchParams.source_type);
   }
 
-  if (searchParams.q) {
-    query = query.ilike("clean_text", `%${searchParams.q}%`);
-  }
+  const { data: items } = await query;
 
-  const { data, error } = await query;
+  // Countries for filter
+  const { data: countryRows } = await supabase
+    .from("buyer_intents")
+    .select("country")
+    .not("country", "is", null);
 
-  if (error) {
-    return <pre>ERROR: {error.message}</pre>;
-  }
+  const countries = Array.from(
+    new Set((countryRows ?? []).map(r => r.country))
+  );
+
+  // Popular searches (already computed table)
+  const { data: keywords } = await supabase
+    .from("popular_keywords_7d")
+    .select("keyword,total")
+    .order("total", { ascending: false })
+    .limit(10);
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>🔍 Supabase Filter Diagnostic</h1>
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+      <h1>Buyer Intent Feed</h1>
 
-      <p style={{ color: "red", fontWeight: 700 }}>
-        SERVER RENDER: {new Date().toISOString()}
-      </p>
+      <FeedUI
+        countries={countries}
+        keywords={keywords ?? []}
+        currentDays={days}
+        currentQuery={searchParams.q ?? ""}
+        currentCountry={searchParams.country ?? ""}
+        currentIndustry={searchParams.industry ?? ""}
+        currentSourceType={searchParams.source_type ?? ""}
+      />
 
-      <h3>searchParams</h3>
-      <pre>{JSON.stringify(searchParams, null, 2)}</pre>
+      <div style={{ marginTop: 24 }}>
+        {(items ?? []).map(item => (
+          <div
+            key={item.id}
+            style={{ padding: "16px 0", borderBottom: "1px solid #eee" }}
+          >
+            <p style={{ fontWeight: 600 }}>{item.clean_text}</p>
 
-      <h3>Returned rows: {data?.length ?? 0}</h3>
+            {item.intent_summary && <p>{item.intent_summary}</p>}
 
-      <h3>Returned IDs</h3>
-      <pre>
-        {JSON.stringify(
-          (data ?? []).map((r) => r.id),
-          null,
-          2
-        )}
-      </pre>
-
-      <h3>Sample rows</h3>
-      <pre>{JSON.stringify(data?.slice(0, 5), null, 2)}</pre>
+            <small style={{ color: "#666" }}>
+              {item.industry || "Other"}
+              {item.country ? ` · ${item.country}` : ""}
+              {" · "}
+              {new Date(item.created_at).toLocaleDateString()}
+            </small>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
