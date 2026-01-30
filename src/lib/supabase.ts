@@ -1,22 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
 export function getSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      fetch: (url, options) => {
-        return fetch(url, {
-          ...options,
-          // 🔒 absolutely disable caching at the runtime level
-          cache: "no-store",
-        });
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        fetch: (url, options) =>
+          fetch(url, { ...options, cache: "no-store" }),
       },
-    },
-  });
+    }
+  );
 }

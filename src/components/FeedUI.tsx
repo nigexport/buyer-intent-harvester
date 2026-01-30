@@ -37,15 +37,16 @@ export default function FeedUI({
   }
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      {/* SEARCH */}
+    <div style={{ display: "flex", gap: 8 }}>
       <input
         placeholder="Search buyer intent…"
         value={q}
         onChange={e => setQ(e.target.value)}
-        onKeyDown={e => e.key === "Enter" && updateParam("q", q)}
-        style={{ width: "100%", padding: 8 }}
+        style={{ flex: 1, padding: 8 }}
       />
+      <button onClick={() => updateParam("q", q)}>
+        Search
+      </button>
 
       {/* 7 / 14 DAY TOGGLE */}
       <div style={{ marginTop: 12 }}>
