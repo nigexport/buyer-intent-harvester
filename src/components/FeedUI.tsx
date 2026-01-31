@@ -1,177 +1,104 @@
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { useState } from "react";
-
-type FeedUIProps = {
-  countries: string[];
-  industries: string[];
-  sources: string[];
-  popularKeywords: string[];
-
-  currentQuery?: string;
-  currentCountry?: string;
-  currentIndustry?: string;
-  currentSource?: string;
-  currentDays: number;
-};
 
 export default function FeedUI({
-  countries,
-  industries,
-  sources,
-  popularKeywords,
-  currentQuery,
-  currentCountry,
-  currentIndustry,
-  currentSource,
-  currentDays,
-}: FeedUIProps) {
+  initialQuery,
+  initialResults,
+  hasMore,
+}: any) {
   const router = useRouter();
+  const [query, setQuery] = useState(initialQuery ?? "");
+  const [results, setResults] = useState(initialResults ?? []);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-  // ✅ controlled search input
-  const [q, setQ] = useState(currentQuery ?? "");
+  const debounceRef = useRef<any>(null);
+  const observerRef = useRef<HTMLDivElement>(null);
 
-  function nav(params: Record<string, string | number | undefined>) {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  /* 🔁 Debounced search */
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      router.push({ pathname: "/", query: { q: query } });
+    }, 400);
+  }, [query]);
 
-    router.push({
-      pathname: "/",
-      query: {
-        ...router.query,
-        ...params,
-        page: 1, // reset pagination
+  /* 🔽 Infinite scroll */
+  useEffect(() => {
+    if (!hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) {
+          setLoading(true);
+          fetch(`/?q=${query}&page=${page + 1}`)
+            .then((r) => r.text())
+            .then(() => setPage((p) => p + 1))
+            .finally(() => setLoading(false));
+        }
       },
-    });
+      { threshold: 1 }
+    );
+
+    if (observerRef.current) observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, [page, hasMore]);
+
+  /* ⭐ Save search */
+  function saveSearch() {
+    const saved = JSON.parse(localStorage.getItem("saved_searches") || "[]");
+    localStorage.setItem(
+      "saved_searches",
+      JSON.stringify([...new Set([...saved, query])])
+    );
+    alert("Search saved");
   }
 
-  function clearFilters() {
-    setQ("");
-    router.push({ pathname: "/" });
+  /* 🎯 Highlight keywords */
+  function highlight(text: string) {
+    if (!query) return text;
+    const re = new RegExp(`(${query})`, "gi");
+    return text.replace(re, "<mark>$1</mark>");
   }
 
   return (
     <>
-      {/* SEARCH */}
-      <div className="search-row">
-        <input
-          type="text"
-          placeholder="Search buyer intent…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && nav({ q })}
-        />
-        <button onClick={() => nav({ q })}>Search</button>
-        <button className="clear" onClick={clearFilters}>
-          Clear
-        </button>
-      </div>
+      <input
+        placeholder="Search buyer intent…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
 
-      {/* DAYS */}
-      <div className="chips">
-        {[7, 14, 30].map((d) => (
-          <button
-            key={d}
-            className={currentDays === d ? "active" : ""}
-            onClick={() => nav({ days: d })}
-          >
-            {d} days
-          </button>
-        ))}
-      </div>
+      <button onClick={saveSearch}>Save search</button>
 
-      {/* COUNTRY */}
-      <select
-        value={currentCountry ?? ""}
-        onChange={(e) => nav({ country: e.target.value })}
-      >
-        <option value="">All Countries</option>
-        {countries.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-
-      {/* INDUSTRY */}
-      <select
-        value={currentIndustry ?? ""}
-        onChange={(e) => nav({ industry: e.target.value })}
-      >
-        <option value="">All Industries</option>
-        {industries.map((i) => (
-          <option key={i} value={i}>
-            {i}
-          </option>
-        ))}
-      </select>
-
-      {/* SOURCE */}
-      <select
-        value={currentSource ?? ""}
-        onChange={(e) => nav({ source: e.target.value })}
-      >
-        <option value="">All Sources</option>
-        {sources.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
-
-      {/* POPULAR KEYWORDS */}
-      <div className="chips">
-        {popularKeywords.map((k) => (
-          <button
-            key={k}
-            onClick={() => {
-              setQ(k);        // ✅ sync input
-              nav({ q: k });  // ✅ guaranteed value
+      {results.map((r: any) => (
+        <div key={r.id} className="card">
+          <a href={r.source_url} target="_blank">
+            {r.request_category || "Buyer Intent"}
+          </a>
+          <p
+            dangerouslySetInnerHTML={{
+              __html: highlight(r.clean_text),
             }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+          />
+          <small>{r.industry || "Other"}</small>
+        </div>
+      ))}
 
-      {/* STYLES */}
+      <div ref={observerRef} />
+
       <style jsx>{`
-        .search-row {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-          flex-wrap: wrap;
-        }
-        .search-row input {
-          flex: 1;
-          padding: 10px;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-        }
-        .search-row button {
-          padding: 10px 14px;
-          background: #000;
-          color: #fff;
-          border-radius: 6px;
-          cursor: pointer;
-        }
-        .search-row button.clear {
-          background: #eee;
-          color: #000;
-        }
-        .chips {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin: 12px 0;
-        }
-        .chips button.active {
-          background: #000;
-          color: #fff;
-        }
-        select {
+        input {
           width: 100%;
           padding: 10px;
-          margin: 6px 0;
-          border-radius: 6px;
+          margin-bottom: 8px;
+        }
+        .card {
+          border-bottom: 1px solid #eee;
+          padding: 12px 0;
+        }
+        mark {
+          background: yellow;
         }
       `}</style>
     </>
