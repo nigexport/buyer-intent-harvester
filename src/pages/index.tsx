@@ -1,6 +1,5 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
 
@@ -26,41 +25,18 @@ const B2B_INDUSTRIES = new Set([
   "IT & Software",
 ]);
 
-export default function Home(props: any) {
-  const {
-    results: initialResults,
-    hasMore: initialHasMore,
-    q,
-  } = props;
-
-  const [results, setResults] = useState(initialResults);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const loaderRef = useRef<HTMLDivElement>(null);
-
-  // 🔽 Infinite scroll
-  useEffect(() => {
-    if (!hasMore) return;
-
-    const obs = new IntersectionObserver(async ([entry]) => {
-      if (entry.isIntersecting) {
-        const nextPage = page + 1;
-        const res = await fetch(
-          `/?q=${q}&page=${nextPage}`
-        );
-        const html = await res.text();
-        if (!html) {
-          setHasMore(false);
-          return;
-        }
-        setPage(nextPage);
-      }
-    });
-
-    if (loaderRef.current) obs.observe(loaderRef.current);
-    return () => obs.disconnect();
-  }, [page, hasMore]);
-
+export default function Home({
+  results,
+  countries,
+  industries,
+  sources,
+  popularKeywords,
+  q,
+  country,
+  industry,
+  source,
+  days,
+}: any) {
   function highlight(text: string) {
     if (!q) return text;
     return text.replace(
@@ -77,10 +53,20 @@ export default function Home(props: any) {
 
       <main className="container">
         <Link href="/" className="logo">
-          <img src="/logo.svg" />
+          <img src="/logo.svg" alt="Buyer Intent" />
         </Link>
 
-        <FeedUI {...props} />
+        <FeedUI
+          countries={countries}
+          industries={industries}
+          sources={sources}
+          popularKeywords={popularKeywords}
+          currentQuery={q}
+          currentCountry={country}
+          currentIndustry={industry}
+          currentSource={source}
+          currentDays={days}
+        />
 
         {results.map((item: any) => (
           <div key={item.id} className="card">
@@ -98,8 +84,6 @@ export default function Home(props: any) {
             </small>
           </div>
         ))}
-
-        <div ref={loaderRef} />
       </main>
 
       <style jsx>{`
@@ -124,21 +108,31 @@ export default function Home(props: any) {
 
 export async function getServerSideProps({ query }: any) {
   const q = query.q ?? "";
-  const page = Number(query.page) || 1;
+  const country = query.country ?? "";
+  const industry = query.industry ?? "";
+  const source = query.source ?? "";
+  const days = Number(query.days) || 7;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
 
   let dbQuery = supabase
     .from("buyer_intents")
     .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    .gte("created_at", cutoff.toISOString())
+    .order("created_at", { ascending: false });
 
   if (q) {
     dbQuery = dbQuery.textSearch("search_vector", q);
   }
 
-  const { data, count } = await dbQuery;
+  if (country) dbQuery = dbQuery.eq("country", country);
+  if (industry) dbQuery = dbQuery.eq("industry", industry);
+  if (source) dbQuery = dbQuery.eq("source_type", source);
 
-  // 🧠 Rank B2B first
+  const { data } = await dbQuery;
+
+  // ✅ Rank B2B higher (JS-side, SAFE)
   const ranked =
     data?.sort((a: any, b: any) => {
       const aB2B = B2B_INDUSTRIES.has(a.industry);
@@ -150,11 +144,34 @@ export async function getServerSideProps({ query }: any) {
       );
     }) ?? [];
 
+  // Distinct filters
+  const distinct = async (field: string) => {
+    const { data } = await supabase
+      .from("buyer_intents")
+      .select(field)
+      .not(field, "is", null);
+    return [...new Set(data?.map((r: any) => r[field]))].sort();
+  };
+
   return {
     props: {
       results: ranked,
-      hasMore: page * PAGE_SIZE < (count ?? 0),
       q,
+      country,
+      industry,
+      source,
+      days,
+      countries: await distinct("country"),
+      industries: await distinct("industry"),
+      sources: await distinct("source_type"),
+      popularKeywords:
+        (
+          await supabase
+            .from("popular_keywords_7d")
+            .select("keyword")
+            .order("total", { ascending: false })
+            .limit(10)
+        ).data?.map((k: any) => k.keyword) ?? [],
     },
   };
 }
