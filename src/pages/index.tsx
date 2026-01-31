@@ -179,6 +179,15 @@ export async function getServerSideProps({ query }: any) {
 
   const { data, count } = await dbQuery;
 
+  const uniqueResults = Array.from(
+    new Map(
+      (data ?? []).map((item: any) => [
+        item.clean_text?.slice(0, 200),
+        item,
+      ])
+    ).values()
+  );
+
   /* DISTINCT FILTER VALUES (CLEAN) */
   const distinct = async (field: string) => {
     const { data } = await supabase
