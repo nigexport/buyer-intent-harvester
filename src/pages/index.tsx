@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
 
@@ -16,14 +17,23 @@ const B2B_INDUSTRIES = new Set([
   "Food & Agriculture",
   "Solid Minerals",
   "Tools & Machinery",
-  "Clothing & Accessories",
   "Real Estate",
-  "Plants & Animal",
-  "Timber, Wood, Fuel",
-  "Scrap",
   "Renewables",
   "IT & Software",
 ]);
+
+type Props = {
+  results: any[];
+  countries: string[];
+  industries: string[];
+  sources: string[];
+  popularKeywords: string[];
+  q: string;
+  country: string;
+  industry: string;
+  source: string;
+  days: number;
+};
 
 export default function Home({
   results,
@@ -36,7 +46,14 @@ export default function Home({
   industry,
   source,
   days,
-}: any) {
+}: Props) {
+  /* ---------------- CLIENT STATE ---------------- */
+  const [items, setItems] = useState(results);
+  const [pageNum, setPageNum] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  /* ---------------- KEYWORD HIGHLIGHT ---------------- */
   function highlight(text: string) {
     if (!q) return text;
     return text.replace(
@@ -45,17 +62,48 @@ export default function Home({
     );
   }
 
+  /* ---------------- INFINITE SCROLL ---------------- */
+  useEffect(() => {
+    const onScroll = async () => {
+      if (
+        window.innerHeight + window.scrollY <
+          document.body.offsetHeight - 300 ||
+        loading ||
+        !hasMore
+      )
+        return;
+
+      setLoading(true);
+
+      const res = await fetch(
+        `/api/search?q=${q}&country=${country}&industry=${industry}&source=${source}&days=${days}&page=${pageNum + 1}`
+      );
+      const json = await res.json();
+
+      setItems((prev) => [...prev, ...json.results]);
+      setPageNum((p) => p + 1);
+      setHasMore(json.hasMore);
+      setLoading(false);
+    };
+
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pageNum, loading, hasMore, q, country, industry, source, days]);
+
   return (
     <>
       <Head>
         <title>Buyer Intent</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <main className="container">
+        {/* LOGO */}
         <Link href="/" className="logo">
           <img src="/logo.svg" alt="Buyer Intent" />
         </Link>
 
+        {/* FILTER UI */}
         <FeedUI
           countries={countries}
           industries={industries}
@@ -68,22 +116,34 @@ export default function Home({
           currentDays={days}
         />
 
-        {results.map((item: any) => (
+        {/* RESULTS */}
+        {items.length === 0 && <p>No results found.</p>}
+
+        {items.map((item) => (
           <div key={item.id} className="card">
-            <a href={item.source_url} target="_blank">
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="title"
+            >
               {item.request_category || "Buyer Intent"}
             </a>
+
             <p
               dangerouslySetInnerHTML={{
                 __html: highlight(item.clean_text),
               }}
             />
+
             <small>
               {item.industry || "Other"} ·{" "}
               {new Date(item.created_at).toLocaleDateString()}
             </small>
           </div>
         ))}
+
+        {loading && <p>Loading more…</p>}
       </main>
 
       <style jsx>{`
@@ -92,19 +152,28 @@ export default function Home({
           margin: auto;
           padding: 16px;
         }
+        .logo img {
+          height: 40px;
+          cursor: pointer;
+        }
         .card {
           border-bottom: 1px solid #eee;
           padding: 16px 0;
         }
+        .title {
+          font-weight: 600;
+          color: #000;
+          text-decoration: none;
+        }
         mark {
-          background: yellow;
+          background: #ffe58f;
         }
       `}</style>
     </>
   );
 }
 
-/* ================= SERVER ================= */
+/* ================= SERVER SIDE ================= */
 
 export async function getServerSideProps({ query }: any) {
   const q = query.q ?? "";
@@ -118,21 +187,18 @@ export async function getServerSideProps({ query }: any) {
 
   let dbQuery = supabase
     .from("buyer_intents")
-    .select("*", { count: "exact" })
+    .select("*")
     .gte("created_at", cutoff.toISOString())
     .order("created_at", { ascending: false });
 
-  if (q) {
-    dbQuery = dbQuery.textSearch("search_vector", q);
-  }
-
+  if (q) dbQuery = dbQuery.textSearch("search_vector", q);
   if (country) dbQuery = dbQuery.eq("country", country);
   if (industry) dbQuery = dbQuery.eq("industry", industry);
   if (source) dbQuery = dbQuery.eq("source_type", source);
 
   const { data } = await dbQuery;
 
-  // ✅ Rank B2B higher (JS-side, SAFE)
+  // Rank B2B higher
   const ranked =
     data?.sort((a: any, b: any) => {
       const aB2B = B2B_INDUSTRIES.has(a.industry);
@@ -144,7 +210,6 @@ export async function getServerSideProps({ query }: any) {
       );
     }) ?? [];
 
-  // Distinct filters
   const distinct = async (field: string) => {
     const { data } = await supabase
       .from("buyer_intents")
@@ -155,7 +220,7 @@ export async function getServerSideProps({ query }: any) {
 
   return {
     props: {
-      results: ranked,
+      results: ranked.slice(0, PAGE_SIZE),
       q,
       country,
       industry,

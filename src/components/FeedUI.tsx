@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
+
 type FeedUIProps = {
   countries: string[];
   industries: string[];
@@ -69,6 +70,14 @@ export default function FeedUI({
       )
     );
   }, [q, popularKeywords]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (q !== currentQuery) nav({ q });
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [q]);
 
   // ⭐ Save search (local only)
   function saveSearch() {
