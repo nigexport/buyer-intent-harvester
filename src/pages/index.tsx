@@ -57,7 +57,7 @@ export default function Home({
   const [hasMore, setHasMore] = useState(true);
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [iframeBlocked, setIframeBlocked] = useState(false);
+
 
 
 
@@ -176,15 +176,13 @@ export default function Home({
 
 
           return (
-            <div className="title-row">
+            <div key={item.id} className="card">
               {url ? (
                 <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setPreviewUrl(url);
-                }}
-                className="title"
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="title"                
               >
 
                   {isTwitter && "🐦 "}
@@ -192,7 +190,7 @@ export default function Home({
                   {item.request_category || "Buyer Intent"}
                 </a>
               ) : (
-                <span className="title no-link">
+                <span className="title">
                   {item.request_category || "Buyer Intent"}
                 </span>
               )}
@@ -201,26 +199,9 @@ export default function Home({
                 {isB2B ? "B2B" : "B2C"}
               </span>
 
-              {/* 🔴 PREVIEW BLOCKED BADGE */}
+              {/* Optional badge for non-clickable */}
               {!url && (
-                <span className="badge blocked">Preview blocked</span>
-              )}
-
-              {/* 🔍 FALLBACK SEARCH (PASTE WAS ASKED ABOUT THIS PART) */}
-              {!url && item.clean_text && (
-                <button
-                  className="fallback"
-                  onClick={() =>
-                    window.open(
-                      `https://www.google.com/search?q=${encodeURIComponent(
-                        item.clean_text.slice(0, 80)
-                      )}`,
-                      "_blank"
-                    )
-                  }
-                >
-                  Search source
-                </button>
+                <span className="badge blocked">No source link</span>
               )}
 
               {/* BODY */}
@@ -242,63 +223,30 @@ export default function Home({
         {loading && <p>Loading more…</p>}
 
         {previewUrl && (
-          <div
-            className="modal-overlay"
-            onClick={() => {
-              setPreviewUrl(null);
-              setIframeBlocked(false);
-            }}
-          >
+          <div className="modal-overlay" onClick={() => setPreviewUrl(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <button
-                className="close"
-                onClick={() => {
-                  setPreviewUrl(null);
-                  setIframeBlocked(false);
-                }}
-              >
+              <button className="close" onClick={() => setPreviewUrl(null)}>
                 ✕
               </button>
 
-              {!iframeBlocked ? (
-                <iframe
-                  src={previewUrl}
-                  onError={() => setIframeBlocked(true)}
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="iframe-fallback">
-                  <p>This source doesn’t allow preview.</p>
-                  <a
-                    href={previewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open in new tab →
-                  </a>
-                </div>
-              )}
+              <iframe
+                src={previewUrl}
+                loading="lazy"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+              />
             </div>
           </div>
         )}
 
       </main>
+
       <style jsx>{`
         .title-row {
           display: flex;
           align-items: center;
           gap: 8px;
-          flex-wrap: wrap;
         }
-        .badge.blocked {
-          font-size: 11px;
-          padding: 2px 6px;
-          border-radius: 4px;
-          background: #fff7e6;
-          color: #ad6800;
-          border: 1px solid #ffd591;
-        }
+
         .tag {
           font-size: 11px;
           padding: 2px 6px;
@@ -360,43 +308,48 @@ export default function Home({
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.6);
+          background: rgba(0, 0, 0, 0.6);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 50;
+          z-index: 1000;
         }
+
         .modal {
-          background: #fff;
           width: 90%;
           max-width: 900px;
-          height: 80vh;
-          position: relative;
+          height: 80%;
+          background: #fff;
           border-radius: 8px;
+          position: relative;
           overflow: hidden;
         }
+
         .modal iframe {
           width: 100%;
           height: 100%;
-          border: 0;
+          border: none;
         }
+
         .close {
           position: absolute;
           top: 8px;
           right: 10px;
-          font-size: 18px;
-          background: none;
+          background: #000;
+          color: #fff;
           border: none;
+          padding: 6px 10px;
           cursor: pointer;
         }
-        .iframe-fallback {
-          padding: 32px;
-          text-align: center;
+        .badge.blocked {
+          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          background: #f5f5f5;
+          color: #777;
+          margin-left: 6px;
         }
-        .iframe-fallback a {
-          font-weight: 600;
-          color: #1677ff;
-        }
+
 
       `}</style>
     </>
@@ -473,3 +426,4 @@ export async function getServerSideProps({ query }: any) {
     },
   };
 }
+
