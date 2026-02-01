@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
-
 type FeedUIProps = {
   countries: string[];
   industries: string[];
@@ -27,7 +26,6 @@ export default function FeedUI({
   currentDays,
 }: FeedUIProps) {
   const router = useRouter();
-
   const [q, setQ] = useState(currentQuery ?? "");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const debounceRef = useRef<any>(null);
@@ -48,7 +46,7 @@ export default function FeedUI({
     router.push({ pathname: "/" });
   }
 
-  // 🔁 Debounced search
+  /* 🔁 SINGLE debounced search (FIXED) */
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -56,37 +54,36 @@ export default function FeedUI({
         nav({ q });
       }
     }, 400);
+
+    return () => clearTimeout(debounceRef.current);
   }, [q]);
 
-  // 💡 Suggestions (simple + fast)
+  /* 💡 REAL suggestions via API */
   useEffect(() => {
     if (!q) {
       setSuggestions([]);
       return;
     }
-    setSuggestions(
-      popularKeywords.filter((k) =>
-        k.toLowerCase().includes(q.toLowerCase())
-      )
-    );
-  }, [q, popularKeywords]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (q !== currentQuery) nav({ q });
-    }, 400);
+    const fetchSuggestions = async () => {
+      const res = await fetch(`/api/suggestions?q=${q}`);
+      const data = await res.json();
+      setSuggestions(data);
+    };
 
-    return () => clearTimeout(t);
+    fetchSuggestions();
   }, [q]);
 
-  // ⭐ Save search (local only)
+  /* ⭐ Save search (local) */
   function saveSearch() {
     const saved = JSON.parse(
       localStorage.getItem("saved_searches") || "[]"
     );
-    const next = Array.from(new Set([...saved, q]));
-    localStorage.setItem("saved_searches", JSON.stringify(next));
-    alert("Search saved (local)");
+    localStorage.setItem(
+      "saved_searches",
+      JSON.stringify([...new Set([...saved, q])])
+    );
+    alert("Search saved");
   }
 
   return (
@@ -112,7 +109,13 @@ export default function FeedUI({
       {suggestions.length > 0 && (
         <div className="suggestions">
           {suggestions.map((s) => (
-            <div key={s} onClick={() => nav({ q: s })}>
+            <div
+              key={s}
+              onClick={() => {
+                setQ(s);
+                nav({ q: s });
+              }}
+            >
               {s}
             </div>
           ))}
@@ -174,7 +177,13 @@ export default function FeedUI({
       {/* POPULAR KEYWORDS */}
       <div className="chips">
         {popularKeywords.map((k) => (
-          <button key={k} onClick={() => nav({ q: k })}>
+          <button
+            key={k}
+            onClick={() => {
+              setQ(k);
+              nav({ q: k });
+            }}
+          >
             {k}
           </button>
         ))}
@@ -214,7 +223,6 @@ export default function FeedUI({
         .suggestions {
           border: 1px solid #ccc;
           background: #fff;
-          margin-bottom: 8px;
         }
         .suggestions div {
           padding: 8px;

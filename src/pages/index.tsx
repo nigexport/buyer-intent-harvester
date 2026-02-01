@@ -53,6 +53,7 @@ export default function Home({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+
   /* ---------------- KEYWORD HIGHLIGHT ---------------- */
   function highlight(text: string) {
     if (!q) return text;
@@ -64,31 +65,54 @@ export default function Home({
 
   /* ---------------- INFINITE SCROLL ---------------- */
   useEffect(() => {
+    let ticking = false;
+
     const onScroll = async () => {
-      if (
-        window.innerHeight + window.scrollY <
-          document.body.offsetHeight - 300 ||
-        loading ||
-        !hasMore
-      )
-        return;
+      if (ticking) return;
+      ticking = true;
 
-      setLoading(true);
+      requestAnimationFrame(async () => {
+        const nearBottom =
+          window.innerHeight + window.scrollY >=
+          document.body.offsetHeight - 300;
 
-      const res = await fetch(
-        `/api/search?q=${q}&country=${country}&industry=${industry}&source=${source}&days=${days}&page=${pageNum + 1}`
-      );
-      const json = await res.json();
+        if (!nearBottom || loading || !hasMore) {
+          ticking = false;
+          return;
+        }
 
-      setItems((prev) => [...prev, ...json.results]);
-      setPageNum((p) => p + 1);
-      setHasMore(json.hasMore);
-      setLoading(false);
+        setLoading(true);
+
+        try {
+          const res = await fetch(
+            `/api/search?q=${encodeURIComponent(q)}&country=${encodeURIComponent(
+              country
+            )}&industry=${encodeURIComponent(
+              industry
+            )}&source=${encodeURIComponent(
+              source
+            )}&days=${days}&page=${pageNum + 1}`
+          );
+
+          const json = await res.json();
+
+          if (!json.results || json.results.length === 0) {
+            setHasMore(false);
+          } else {
+            setItems((prev) => [...prev, ...json.results]);
+            setPageNum((p) => p + 1);
+            setHasMore(json.hasMore);
+          }
+        } finally {
+          setLoading(false);
+          ticking = false;
+        }
+      });
     };
 
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
-  }, [pageNum, loading, hasMore, q, country, industry, source, days]);
+  }, [loading, hasMore, q, country, industry, source, days]);
 
   return (
     <>
@@ -122,11 +146,15 @@ export default function Home({
         {items.map((item) => {
           const url =
             item.source_url &&
+            typeof item.source_url === "string" &&
             item.source_url.includes(".")
               ? item.source_url.startsWith("http")
                 ? item.source_url
                 : `https://${item.source_url}`
               : null;
+
+          const isTwitter = url?.includes("twitter.com");
+          const isLinkedIn = url?.includes("linkedin.com");
 
           return (
             <div key={item.id} className="card">
@@ -137,6 +165,8 @@ export default function Home({
                   rel="noopener noreferrer"
                   className="title"
                 >
+                  {isTwitter && "🐦 "}
+                  {isLinkedIn && "💼 "}
                   {item.request_category || "Buyer Intent"}
                 </a>
               ) : (
@@ -158,6 +188,7 @@ export default function Home({
             </div>
           );
         })}
+
         {loading && <p>Loading more…</p>}
       </main>
 
