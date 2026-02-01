@@ -63,12 +63,18 @@ export default function Home({
 
   /* ---------------- KEYWORD HIGHLIGHT ---------------- */
   function highlight(text: string) {
-    if (!q) return text;
+    if (!q || !text) return text;
     return text.replace(
-      new RegExp(`(${q})`, "gi"),
+      new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
       "<mark>$1</mark>"
     );
   }
+
+  useEffect(() => {
+    setItems(results);
+    setPageNum(1);
+    setHasMore(true);
+  }, [results]);
 
   /* ---------------- INFINITE SCROLL ---------------- */
   useEffect(() => {

@@ -32,14 +32,16 @@ export default function FeedUI({
   const debounceRef = useRef<any>(null);
 
   function nav(params: Record<string, string | number | undefined>) {
-    router.push({
-      pathname: "/",
-      query: {
-        ...router.query,
-        ...params,
-        page: 1,
+    router.push(
+      {
+        pathname: "/",
+        query: {
+          ...params,
+        },
       },
-    });
+      undefined,
+      { shallow: false }
+    );
   }
 
   function clearFilters() {
@@ -139,7 +141,15 @@ export default function FeedUI({
       {/* COUNTRY */}
       <select
         value={currentCountry ?? ""}
-        onChange={(e) => nav({ country: e.target.value })}
+        onChange={(e) =>
+          nav({
+            q: currentQuery || undefined,
+            country: e.target.value || undefined,
+            industry: currentIndustry || undefined,
+            source: currentSource || undefined,
+            days: currentDays,
+          })
+        }
       >
         <option value="">All Countries</option>
         {countries.map((c) => (
@@ -149,10 +159,19 @@ export default function FeedUI({
         ))}
       </select>
 
+
       {/* INDUSTRY */}
       <select
         value={currentIndustry ?? ""}
-        onChange={(e) => nav({ industry: e.target.value })}
+        onChange={(e) =>
+          nav({
+            q: currentQuery || undefined,
+            country: currentCountry || undefined,
+            industry: e.target.value || undefined,
+            source: currentSource || undefined,
+            days: currentDays,
+          })
+        }
       >
         <option value="">All Industries</option>
         {industries.map((i) => (
@@ -162,10 +181,19 @@ export default function FeedUI({
         ))}
       </select>
 
+
       {/* SOURCE */}
       <select
         value={currentSource ?? ""}
-        onChange={(e) => nav({ source: e.target.value })}
+        onChange={(e) =>
+          nav({
+            q: currentQuery || undefined,
+            country: currentCountry || undefined,
+            industry: currentIndustry || undefined,
+            source: e.target.value || undefined,
+            days: currentDays,
+          })
+        }
       >
         <option value="">All Sources</option>
         {sources.map((s) => (
