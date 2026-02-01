@@ -3,7 +3,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
+import { useRouter } from "next/router";
 
+const router = useRouter();
 const PAGE_SIZE = 15;
 
 const B2B_INDUSTRIES = new Set([
@@ -52,6 +54,10 @@ export default function Home({
   const [pageNum, setPageNum] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const onlyLinked = router.query.onlyLinked === "1";
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+
 
 
   /* ---------------- KEYWORD HIGHLIGHT ---------------- */
@@ -143,10 +149,19 @@ export default function Home({
         {/* RESULTS */}
         {items.length === 0 && <p>No results found.</p>}
 
-        {items.map((item) => {
+        {items
+          .filter((item) =>
+            !onlyLinked
+              ? true
+              : typeof item.source_url === "string" &&
+                item.source_url.length > 8 &&
+                item.source_url.includes(".")
+          )
+          .map((item) => {
+
           const url =
-            item.source_url &&
             typeof item.source_url === "string" &&
+            item.source_url.length > 8 &&
             item.source_url.includes(".")
               ? item.source_url.startsWith("http")
                 ? item.source_url
@@ -155,32 +170,61 @@ export default function Home({
 
           const isTwitter = url?.includes("twitter.com");
           const isLinkedIn = url?.includes("linkedin.com");
+          const isB2B = B2B_INDUSTRIES.has(item.industry);
+          
+
 
           return (
-            <div key={item.id} className="card">
+            <div className="title-row">
               {url ? (
                 <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="title"
-                >
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPreviewUrl(url);
+                }}
+                className="title"
+              >
+
                   {isTwitter && "🐦 "}
                   {isLinkedIn && "💼 "}
                   {item.request_category || "Buyer Intent"}
                 </a>
               ) : (
-                <span className="title">
+                <span className="title no-link">
                   {item.request_category || "Buyer Intent"}
                 </span>
               )}
 
+              <span className={`tag ${isB2B ? "b2b" : "b2c"}`}>
+                {isB2B ? "B2B" : "B2C"}
+              </span>
+
+              {/* 🔍 FALLBACK SEARCH (PASTE WAS ASKED ABOUT THIS PART) */}
+              {!url && item.clean_text && (
+                <button
+                  className="fallback"
+                  onClick={() =>
+                    window.open(
+                      `https://www.google.com/search?q=${encodeURIComponent(
+                        item.clean_text.slice(0, 80)
+                      )}`,
+                      "_blank"
+                    )
+                  }
+                >
+                  Search source
+                </button>
+              )}
+
+              {/* BODY */}
               <p
                 dangerouslySetInnerHTML={{
                   __html: highlight(item.clean_text),
                 }}
               />
 
+              {/* META */}
               <small>
                 {item.industry || "Other"} ·{" "}
                 {new Date(item.created_at).toLocaleDateString()}
@@ -190,9 +234,49 @@ export default function Home({
         })}
 
         {loading && <p>Loading more…</p>}
+
+        {previewUrl && (
+          <div className="modal-overlay" onClick={() => setPreviewUrl(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <button className="close" onClick={() => setPreviewUrl(null)}>
+                ✕
+              </button>
+
+              <iframe
+                src={previewUrl}
+                loading="lazy"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+              />
+            </div>
+          </div>
+        )}
+
       </main>
 
       <style jsx>{`
+        .title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .tag {
+          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-weight: 600;
+        }
+
+        .tag.b2b {
+          background: #e6f4ff;
+          color: #0958d9;
+        }
+
+        .tag.b2c {
+          background: #fff1f0;
+          color: #a8071a;
+        }
+
         .container {
           max-width: 900px;
           margin: auto;
@@ -211,9 +295,66 @@ export default function Home({
           color: #000;
           text-decoration: none;
         }
+        .no-link {
+          color: #555;
+          cursor: default;
+        }
+        .badge {
+          margin-left: 8px;
+          font-size: 12px;
+          background: #eee;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+        .fallback {
+          margin: 6px 0 10px;
+          padding: 6px 10px;
+          font-size: 13px;
+          background: #f5f5f5;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          cursor: pointer;
+        }
         mark {
           background: #ffe58f;
         }
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal {
+          width: 90%;
+          max-width: 900px;
+          height: 80%;
+          background: #fff;
+          border-radius: 8px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .modal iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+
+        .close {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          background: #000;
+          color: #fff;
+          border: none;
+          padding: 6px 10px;
+          cursor: pointer;
+        }
+
       `}</style>
     </>
   );

@@ -12,6 +12,7 @@ type FeedUIProps = {
   currentIndustry?: string;
   currentSource?: string;
   currentDays: number;
+  onlyLinked?: boolean;
 };
 
 export default function FeedUI({
@@ -174,6 +175,17 @@ export default function FeedUI({
         ))}
       </select>
 
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={router.query.onlyLinked === "1"}
+          onChange={(e) =>
+            nav({ onlyLinked: e.target.checked ? "1" : undefined })
+          }
+        />
+        Only show clickable sources
+      </label>
+
       {/* POPULAR KEYWORDS */}
       <div className="chips">
         {popularKeywords.map((k) => (
@@ -231,6 +243,13 @@ export default function FeedUI({
         .suggestions div:hover {
           background: #f0f0f0;
         }
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 8px 0;
+        font-size: 14px;
+      }
       `}</style>
     </>
   );
