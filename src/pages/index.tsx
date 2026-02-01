@@ -57,7 +57,7 @@ export default function Home({
   const [hasMore, setHasMore] = useState(true);
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
+  const [iframeBlocked, setIframeBlocked] = useState(false);
 
 
 
@@ -201,6 +201,11 @@ export default function Home({
                 {isB2B ? "B2B" : "B2C"}
               </span>
 
+              {/* 🔴 PREVIEW BLOCKED BADGE */}
+              {!url && (
+                <span className="badge blocked">Preview blocked</span>
+              )}
+
               {/* 🔍 FALLBACK SEARCH (PASTE WAS ASKED ABOUT THIS PART) */}
               {!url && item.clean_text && (
                 <button
@@ -237,30 +242,63 @@ export default function Home({
         {loading && <p>Loading more…</p>}
 
         {previewUrl && (
-          <div className="modal-overlay" onClick={() => setPreviewUrl(null)}>
+          <div
+            className="modal-overlay"
+            onClick={() => {
+              setPreviewUrl(null);
+              setIframeBlocked(false);
+            }}
+          >
             <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <button className="close" onClick={() => setPreviewUrl(null)}>
+              <button
+                className="close"
+                onClick={() => {
+                  setPreviewUrl(null);
+                  setIframeBlocked(false);
+                }}
+              >
                 ✕
               </button>
 
-              <iframe
-                src={previewUrl}
-                loading="lazy"
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
+              {!iframeBlocked ? (
+                <iframe
+                  src={previewUrl}
+                  onError={() => setIframeBlocked(true)}
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="iframe-fallback">
+                  <p>This source doesn’t allow preview.</p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open in new tab →
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}
 
       </main>
-
       <style jsx>{`
         .title-row {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
         }
-
+        .badge.blocked {
+          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          background: #fff7e6;
+          color: #ad6800;
+          border: 1px solid #ffd591;
+        }
         .tag {
           font-size: 11px;
           padding: 2px 6px;
@@ -322,38 +360,42 @@ export default function Home({
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0,0,0,0.6);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 1000;
+          z-index: 50;
         }
-
         .modal {
+          background: #fff;
           width: 90%;
           max-width: 900px;
-          height: 80%;
-          background: #fff;
-          border-radius: 8px;
+          height: 80vh;
           position: relative;
+          border-radius: 8px;
           overflow: hidden;
         }
-
         .modal iframe {
           width: 100%;
           height: 100%;
-          border: none;
+          border: 0;
         }
-
         .close {
           position: absolute;
           top: 8px;
           right: 10px;
-          background: #000;
-          color: #fff;
+          font-size: 18px;
+          background: none;
           border: none;
-          padding: 6px 10px;
           cursor: pointer;
+        }
+        .iframe-fallback {
+          padding: 32px;
+          text-align: center;
+        }
+        .iframe-fallback a {
+          font-weight: 600;
+          color: #1677ff;
         }
 
       `}</style>
