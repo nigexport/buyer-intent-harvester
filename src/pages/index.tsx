@@ -3,9 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
-import { useRouter } from "next/router";
 
-const router = useRouter();
+
 const PAGE_SIZE = 15;
 
 const B2B_INDUSTRIES = new Set([
@@ -35,6 +34,7 @@ type Props = {
   industry: string;
   source: string;
   days: number;
+  onlyLinked: boolean; // ✅ ADD
 };
 
 export default function Home({
@@ -48,13 +48,14 @@ export default function Home({
   industry,
   source,
   days,
+  onlyLinked,
 }: Props) {
   /* ---------------- CLIENT STATE ---------------- */
   const [items, setItems] = useState(results);
   const [pageNum, setPageNum] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const onlyLinked = router.query.onlyLinked === "1";
+  
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
 
@@ -367,7 +368,9 @@ export async function getServerSideProps({ query }: any) {
   const country = query.country ?? "";
   const industry = query.industry ?? "";
   const source = query.source ?? "";
-  const days = Number(query.days) || 7;
+  const days = Number(query.days) || 7;  
+  const onlyLinked = query.onlyLinked === "1";
+
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
@@ -413,6 +416,7 @@ export async function getServerSideProps({ query }: any) {
       industry,
       source,
       days,
+      onlyLinked, // ✅ ADD THIS
       countries: await distinct("country"),
       industries: await distinct("industry"),
       sources: await distinct("source_type"),
