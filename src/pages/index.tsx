@@ -119,30 +119,45 @@ export default function Home({
         {/* RESULTS */}
         {items.length === 0 && <p>No results found.</p>}
 
-        {items.map((item) => (
-          <div key={item.id} className="card">
-            <a
-              href={item.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="title"
-            >
-              {item.request_category || "Buyer Intent"}
-            </a>
+        {items.map((item) => {
+          const url =
+            item.source_url &&
+            item.source_url.includes(".")
+              ? item.source_url.startsWith("http")
+                ? item.source_url
+                : `https://${item.source_url}`
+              : null;
 
-            <p
-              dangerouslySetInnerHTML={{
-                __html: highlight(item.clean_text),
-              }}
-            />
+          return (
+            <div key={item.id} className="card">
+              {url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="title"
+                >
+                  {item.request_category || "Buyer Intent"}
+                </a>
+              ) : (
+                <span className="title">
+                  {item.request_category || "Buyer Intent"}
+                </span>
+              )}
 
-            <small>
-              {item.industry || "Other"} ·{" "}
-              {new Date(item.created_at).toLocaleDateString()}
-            </small>
-          </div>
-        ))}
+              <p
+                dangerouslySetInnerHTML={{
+                  __html: highlight(item.clean_text),
+                }}
+              />
 
+              <small>
+                {item.industry || "Other"} ·{" "}
+                {new Date(item.created_at).toLocaleDateString()}
+              </small>
+            </div>
+          );
+        })}
         {loading && <p>Loading more…</p>}
       </main>
 
