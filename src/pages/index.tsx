@@ -150,66 +150,60 @@ export default function Home({
         {/* RESULTS */}
         {items.length === 0 && <p>No results found.</p>}
 
-        {items
-          .filter((item) =>
-            !onlyLinked
-              ? true
-              : typeof item.source_url === "string" &&
-                item.source_url.length > 8 &&
-                item.source_url.includes(".")
-          )
-          .map((item) => {
-
+        {items.map((item) => {
           const url =
+            item.source_url &&
             typeof item.source_url === "string" &&
-            item.source_url.length > 8 &&
             item.source_url.includes(".")
               ? item.source_url.startsWith("http")
                 ? item.source_url
                 : `https://${item.source_url}`
               : null;
 
-          const isTwitter = url?.includes("twitter.com");
-          const isLinkedIn = url?.includes("linkedin.com");
+          const isTwitter = !!url && url.includes("twitter.com");
+          const isLinkedIn = !!url && url.includes("linkedin.com");
           const isB2B = B2B_INDUSTRIES.has(item.industry);
-          
-
 
           return (
             <div key={item.id} className="card">
-              {url ? (
-                <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="title"                
-              >
+              {/* TITLE ROW */}
+              <div className="title-row">
+                {url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="title"
+                  >
+                    {isTwitter && "🐦 "}
+                    {isLinkedIn && "💼 "}
+                    {item.request_category || "Buyer Intent"}
+                  </a>
+                ) : (
+                  <span className="title">
+                    {item.request_category || "Buyer Intent"}
+                  </span>
+                )}
 
-                  {isTwitter && "🐦 "}
-                  {isLinkedIn && "💼 "}
-                  {item.request_category || "Buyer Intent"}
-                </a>
-              ) : (
-                <span className="title">
-                  {item.request_category || "Buyer Intent"}
+                {/* B2B / B2C TAG */}
+                <span className={`tag ${isB2B ? "b2b" : "b2c"}`}>
+                  {isB2B ? "B2B" : "B2C"}
                 </span>
-              )}
 
-              <span className={`tag ${isB2B ? "b2b" : "b2c"}`}>
-                {isB2B ? "B2B" : "B2C"}
-              </span>
-
-              {/* Optional badge for non-clickable */}
-              {!url && (
-                <span className="badge blocked">No source link</span>
-              )}
+                {/* NO SOURCE BADGE */}
+                {!url && (
+                  <span className="badge blocked">No source link</span>
+                )}
+              </div>
 
               {/* BODY */}
-              <p
-                dangerouslySetInnerHTML={{
-                  __html: highlight(item.clean_text),
-                }}
-              />
+              {item.clean_text && (
+                <p
+                  dangerouslySetInnerHTML={{
+                    __html: highlight(item.clean_text),
+                  }}
+                />
+              )}
 
               {/* META */}
               <small>
