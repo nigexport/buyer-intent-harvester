@@ -201,18 +201,6 @@ export default function FeedUI({
         ))}
       </select>
 
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={router.query.onlyLinked === "1"}
-          onChange={(e) =>
-            nav({ onlyLinked: e.target.checked ? "1" : undefined })
-          }
-        />
-        Only show clickable sources
-      </label>
-
-
 
       <style jsx>{`
         .search-row {
