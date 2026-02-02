@@ -6,12 +6,21 @@ const PAGE_SIZE = 15;
 const B2B_INDUSTRIES = new Set([
   "Procurement",
   "Construction",
-  "Manufacturing",
-  "Oil & Gas",
-  "Energy",
-  "Transportation",
-  "Logistics",
-  "IT & Software",
+  "Home & Office",
+  "Mining, Oil & Gas",
+  "Energy & Renewables",
+  "Transport & Spare parts",
+  "Electronics & Electrical",
+  "Food & Agriculture",
+  "Chemicals, Mineral & Raw Material",
+  "Tools & Machinery",
+  "Clothing & Accessories",
+  "Real Estate",
+  "Plants & Animal",
+  "Timber, Wood, Fuel",
+  "Scrap",
+  "Services",
+  "IT & Telecoms",
 ]);
 
 export default async function handler(
