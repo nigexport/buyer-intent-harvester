@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 type FeedUIProps = {
   countries: string[];
   industries: string[];
-  sources: string[];
-  popularKeywords: string[];
+  sources: string[];  
 
   currentQuery?: string;
   currentCountry?: string;
@@ -18,8 +17,7 @@ type FeedUIProps = {
 export default function FeedUI({
   countries,
   industries,
-  sources,
-  popularKeywords,
+  sources,  
   currentQuery,
   currentCountry,
   currentIndustry,
@@ -214,20 +212,7 @@ export default function FeedUI({
         Only show clickable sources
       </label>
 
-      {/* POPULAR KEYWORDS */}
-      <div className="chips">
-        {popularKeywords.map((k) => (
-          <button
-            key={k}
-            onClick={() => {
-              setQ(k);
-              nav({ q: k });
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+
 
       <style jsx>{`
         .search-row {
@@ -271,13 +256,38 @@ export default function FeedUI({
         .suggestions div:hover {
           background: #f0f0f0;
         }
-      .checkbox {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin: 8px 0;
-        font-size: 14px;
-      }
+        .checkbox {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin: 8px 0;
+          font-size: 14px;
+        }
+        select {
+          width: 100%;
+          padding: 14px 16px;
+          margin: 10px 0;
+          font-size: 16px;
+          border-radius: 8px;
+          border: 1px solid #ccc;
+        }
+
+        .search-row input {
+          padding: 14px 16px;
+          font-size: 16px;
+        }
+
+        .search-row button {
+          padding: 14px 18px;
+          font-size: 15px;
+        }
+
+        @media (max-width: 640px) {
+          .search-row {
+            flex-direction: column;
+          }
+        }
+
       `}</style>
     </>
   );

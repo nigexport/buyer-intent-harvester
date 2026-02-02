@@ -27,8 +27,7 @@ type Props = {
   results: any[];
   countries: string[];
   industries: string[];
-  sources: string[];
-  popularKeywords: string[];
+  sources: string[];  
   q: string;
   country: string;
   industry: string;
@@ -41,8 +40,7 @@ export default function Home({
   results,
   countries,
   industries,
-  sources,
-  popularKeywords,
+  sources,  
   q,
   country,
   industry,
@@ -144,8 +142,7 @@ export default function Home({
         <FeedUI
           countries={countries}
           industries={industries}
-          sources={sources}
-          popularKeywords={popularKeywords}
+          sources={sources}          
           currentQuery={q}
           currentCountry={country}
           currentIndustry={industry}
