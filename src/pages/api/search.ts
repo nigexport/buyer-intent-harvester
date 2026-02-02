@@ -20,6 +20,9 @@ const B2B_INDUSTRIES = new Set([
   "Timber, Wood, Fuel",
   "Scrap",
   "Services",
+  "Healthcare",
+  "Manufacturing",
+  "Staffing",
   "IT & Telecoms",
 ]);
 
