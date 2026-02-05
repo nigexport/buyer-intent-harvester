@@ -13,19 +13,28 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+
+    // 🔑 Required for path aliases (still valid)
+    "baseUrl": "src",
+
+    // 🔕 Silence TS 6+ deprecation warning
+    "ignoreDeprecations": "6.0",
+
+    // 🔑 Alias
+    "paths": {
+      "@/*": ["*"]
+    },
+
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    ]
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
