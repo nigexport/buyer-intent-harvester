@@ -2,9 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { supabase } from "@/lib/supabase";
 
-
-
-// Disable body parsing (required for Stripe)
 export const config = {
   api: {
     bodyParser: false,
@@ -13,7 +10,7 @@ export const config = {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// Read raw body safely (NO micro dependency)
+// Read raw body safely
 async function getRawBody(req: NextApiRequest): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
@@ -30,29 +27,49 @@ export default async function handler(
     return res.status(405).end("Method Not Allowed");
   }
 
-  const sig = req.headers["stripe-signature"];
-  if (!sig) {
+  const signature = req.headers["stripe-signature"];
+  if (!signature) {
     return res.status(400).send("Missing Stripe signature");
   }
 
   let event: Stripe.Event;
 
   try {
-    const buf = await getRawBody(req);
+    const rawBody = await getRawBody(req);
 
     event = stripe.webhooks.constructEvent(
-      buf,
-      sig,
+      rawBody,
+      signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error("Stripe webhook error:", err.message);
+    console.error("Stripe signature error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // ======================
+  // =========================
+  // IDEMPOTENCY CHECK
+  // =========================
+  const { data: alreadyProcessed } = await supabase
+    .from("stripe_events")
+    .select("id")
+    .eq("id", event.id)
+    .single();
+
+  if (alreadyProcessed) {
+    // Stripe retry — safely ignore
+    return res.json({ received: true, duplicate: true });
+  }
+
+  // Record event immediately (prevents race conditions)
+  await supabase.from("stripe_events").insert({
+    id: event.id,
+    type: event.type,
+  });
+
+  // =========================
   // HANDLE EVENTS
-  // ======================
+  // =========================
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -82,5 +99,5 @@ export default async function handler(
     }
   }
 
-  res.json({ received: true });
+  return res.json({ received: true });
 }
