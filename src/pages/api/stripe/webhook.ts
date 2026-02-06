@@ -8,9 +8,12 @@ export const config = {
   },
 };
 
+// ✅ Stripe client (env var must exist)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// Read raw body safely
+// =========================
+// Read raw request body
+// =========================
 async function getRawBody(req: NextApiRequest): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
@@ -23,10 +26,16 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // =========================
+  // Method guard
+  // =========================
   if (req.method !== "POST") {
-    return res.status(405).end("Method Not Allowed");
+    return res.status(405).send("Method Not Allowed");
   }
 
+  // =========================
+  // Signature guard
+  // =========================
   const signature = req.headers["stripe-signature"];
   if (!signature) {
     return res.status(400).send("Missing Stripe signature");
@@ -34,6 +43,9 @@ export default async function handler(
 
   let event: Stripe.Event;
 
+  // =========================
+  // Verify webhook signature
+  // =========================
   try {
     const rawBody = await getRawBody(req);
 
@@ -43,21 +55,21 @@ export default async function handler(
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error("Stripe signature error:", err.message);
+    console.error("Stripe signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // =========================
   // IDEMPOTENCY CHECK
   // =========================
-  const { data: alreadyProcessed } = await supabase
+  const { data: existingEvent } = await supabase
     .from("stripe_events")
     .select("id")
     .eq("id", event.id)
-    .single();
+    .maybeSingle(); // ✅ safer than .single()
 
-  if (alreadyProcessed) {
-    // Stripe retry — safely ignore
+  if (existingEvent) {
+    // Stripe retry → ignore safely
     return res.json({ received: true, duplicate: true });
   }
 
@@ -74,29 +86,46 @@ export default async function handler(
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      if (!session.customer || !session.customer_email) break;
+      const email = session.customer_email;
+      const customerId = session.customer as string | null;
+
+      // Defensive guards
+      if (!email || !customerId) {
+        console.warn(
+          "checkout.session.completed missing email or customer",
+          session.id
+        );
+        break;
+      }
 
       await supabase
-        .from("users")
+        .from("users") // public.users
         .update({
           plan: "pro",
-          stripe_customer_id: session.customer as string,
+          stripe_customer_id: customerId,
         })
-        .eq("email", session.customer_email);
+        .eq("email", email);
 
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
+      const customerId = sub.customer as string | null;
+
+      if (!customerId) break;
 
       await supabase
         .from("users")
         .update({ plan: "free" })
-        .eq("stripe_customer_id", sub.customer as string);
+        .eq("stripe_customer_id", customerId);
 
       break;
     }
+
+    // Optional: explicitly ignore other events
+    default:
+      break;
   }
 
   return res.json({ received: true });
