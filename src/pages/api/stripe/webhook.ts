@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
-import { supabase } from "@/lib/supabase";
+//import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
 
 export const config = {
   api: {
@@ -62,7 +64,7 @@ export default async function handler(
   // =========================
   // IDEMPOTENCY CHECK
   // =========================
-  const { data: existingEvent } = await supabase
+  const { data: existingEvent } = await supabaseAdmin
     .from("stripe_events")
     .select("id")
     .eq("id", event.id)
@@ -74,7 +76,7 @@ export default async function handler(
   }
 
   // Record event immediately (prevents race conditions)
-  await supabase.from("stripe_events").insert({
+  await supabaseAdmin.from("stripe_events").insert({
     id: event.id,
     type: event.type,
   });
@@ -98,7 +100,7 @@ export default async function handler(
         break;
       }
 
-      await supabase
+      await supabaseAdmin
         .from("users") // public.users
         .update({
           plan: "pro",
@@ -115,7 +117,7 @@ export default async function handler(
 
       if (!customerId) break;
 
-      await supabase
+      await supabaseAdmin
         .from("users")
         .update({ plan: "free" })
         .eq("stripe_customer_id", customerId);

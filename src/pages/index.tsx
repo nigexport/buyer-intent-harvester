@@ -1,8 +1,10 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+//import { supabase } from "../lib/supabase";
 import FeedUI from "../components/FeedUI";
+import { supabaseClient } from "@/lib/supabaseClient";
+
 
 
 const PAGE_SIZE = 15;
@@ -374,7 +376,7 @@ export async function getServerSideProps({ query }: any) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
 
-  let dbQuery = supabase
+  let dbQuery = supabaseClient
     .from("buyer_intents")
     .select("*")
     .gte("created_at", cutoff.toISOString())
@@ -400,7 +402,7 @@ export async function getServerSideProps({ query }: any) {
     }) ?? [];
 
   const distinct = async (field: string) => {
-    const { data } = await supabase
+    const { data } = await supabaseClient
       .from("buyer_intents")
       .select(field)
       .not(field, "is", null);
@@ -421,7 +423,7 @@ export async function getServerSideProps({ query }: any) {
       sources: await distinct("source_type"),
       popularKeywords:
         (
-          await supabase
+          await supabaseClient
             .from("popular_keywords_7d")
             .select("keyword")
             .order("total", { ascending: false })
