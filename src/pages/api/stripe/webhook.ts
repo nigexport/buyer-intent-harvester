@@ -1,8 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
-//import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
 
 export const config = {
   api: {
@@ -10,7 +8,7 @@ export const config = {
   },
 };
 
-// ✅ Stripe client (env var must exist)
+// Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // =========================
@@ -68,14 +66,13 @@ export default async function handler(
     .from("stripe_events")
     .select("id")
     .eq("id", event.id)
-    .maybeSingle(); // ✅ safer than .single()
+    .maybeSingle();
 
   if (existingEvent) {
-    // Stripe retry → ignore safely
     return res.json({ received: true, duplicate: true });
   }
 
-  // Record event immediately (prevents race conditions)
+  // Record event immediately
   await supabaseAdmin.from("stripe_events").insert({
     id: event.id,
     type: event.type,
@@ -91,7 +88,6 @@ export default async function handler(
       const email = session.customer_email;
       const customerId = session.customer as string | null;
 
-      // Defensive guards
       if (!email || !customerId) {
         console.warn(
           "checkout.session.completed missing email or customer",
@@ -100,10 +96,24 @@ export default async function handler(
         break;
       }
 
+      // 🔑 Get price ID from line items
+      const lineItems = await stripe.checkout.sessions.listLineItems(
+        session.id,
+        { limit: 1 }
+      );
+
+      const priceId = lineItems.data[0]?.price?.id;
+
+      let plan: "starter" | "pro" = "starter";
+
+      if (priceId === process.env.STRIPE_PRICE_PRO) {
+        plan = "pro";
+      }
+
       await supabaseAdmin
-        .from("users") // public.users
+        .from("users")
         .update({
-          plan: "pro",
+          plan,
           stripe_customer_id: customerId,
         })
         .eq("email", email);
@@ -125,8 +135,8 @@ export default async function handler(
       break;
     }
 
-    // Optional: explicitly ignore other events
     default:
+      // ignore other events
       break;
   }
 
