@@ -52,7 +52,7 @@ export default function UpgradePage() {
           </p>
           <ul>
             <li>✔ 3 saved searches</li>
-            <li>✔ Daily alerts</li>
+            <li>✔ Weekly alerts</li>
             <li>✔ Email notifications</li>
           </ul>
 

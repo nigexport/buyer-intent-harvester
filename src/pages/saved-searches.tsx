@@ -19,7 +19,6 @@ export default function SavedSearchesPage() {
 
       setUser(auth.user);
 
-      // Load user plan
       const { data: profile } = await supabaseClient
         .from("users")
         .select("plan")
@@ -28,7 +27,6 @@ export default function SavedSearchesPage() {
 
       setPlan((profile?.plan as any) ?? "free");
 
-      // Load saved searches
       const { data } = await supabaseClient
         .from("saved_searches")
         .select("*")
@@ -41,6 +39,21 @@ export default function SavedSearchesPage() {
 
     loadData();
   }, []);
+
+  async function updateFrequency(id: string, frequency: "daily" | "weekly") {
+    if (plan !== "pro" && frequency === "daily") return;
+
+    await supabaseClient
+      .from("saved_searches")
+      .update({ frequency })
+      .eq("id", id);
+
+    setSavedSearches((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, frequency } : s
+      )
+    );
+  }
 
   async function deleteSearch(id: string) {
     const confirmed = confirm("Delete this saved search?");
@@ -76,7 +89,6 @@ export default function SavedSearchesPage() {
           : `${used} / ${limit} used`}
       </p>
 
-      {/* 🔹 Upgrade upsell */}
       {reachedLimit && plan !== "pro" && (
         <div
           style={{
@@ -91,7 +103,7 @@ export default function SavedSearchesPage() {
             <Link href="/upgrade">
               <strong> Upgrade to Pro</strong>
             </Link>{" "}
-            to unlock unlimited searches.
+            to unlock unlimited searches and daily alerts.
           </p>
         </div>
       )}
@@ -111,15 +123,33 @@ export default function SavedSearchesPage() {
           <tbody>
             {savedSearches.map((s) => (
               <tr key={s.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>
-                  <strong>{s.query}</strong>
-                </td>
+                <td><strong>{s.query}</strong></td>
                 <td>
                   {[s.industry, s.country, s.source_type]
                     .filter(Boolean)
                     .join(" · ") || "—"}
                 </td>
-                <td>{s.frequency}</td>
+                <td>
+                  <select
+                    value={s.frequency}
+                    disabled={plan !== "pro"}
+                    onChange={(e) =>
+                      updateFrequency(
+                        s.id,
+                        e.target.value as "daily" | "weekly"
+                      )
+                    }
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="daily">Daily</option>
+                  </select>
+
+                  {plan !== "pro" && (
+                    <div style={{ fontSize: 12 }}>
+                      <a href="/upgrade">Upgrade for daily</a>
+                    </div>
+                  )}
+                </td>
                 <td align="right">
                   <button
                     onClick={() => deleteSearch(s.id)}
@@ -139,7 +169,6 @@ export default function SavedSearchesPage() {
         </table>
       )}
 
-      {/* 🔹 CTA back to search */}
       <div style={{ marginTop: 30 }}>
         <Link href="/search">
           <button
