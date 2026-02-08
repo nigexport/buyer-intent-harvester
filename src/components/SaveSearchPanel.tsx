@@ -17,6 +17,12 @@ export default function SaveSearchPanel({
 
   return (
     <div className="border rounded p-4 mb-4">
+      {/* 🔹 Current plan */}
+      <p className="text-xs text-gray-600 mb-1">
+        Current plan: <strong>{plan.toUpperCase()}</strong>
+      </p>
+
+      {/* 🔹 Usage */}
       <p className="text-sm mb-2">
         Saved searches:{" "}
         {limit === Infinity
@@ -24,6 +30,7 @@ export default function SaveSearchPanel({
           : `${savedCount} / ${limit}`}
       </p>
 
+      {/* 🔹 Action */}
       <button
         onClick={onSave}
         disabled={reachedLimit}
@@ -34,7 +41,8 @@ export default function SaveSearchPanel({
         Save search
       </button>
 
-      {reachedLimit && (
+      {/* 🔹 Upgrade CTA */}
+      {reachedLimit && plan !== "pro" && (
         <div className="mt-3 text-sm">
           <p className="text-red-600 mb-1">
             You’ve reached your plan limit.
